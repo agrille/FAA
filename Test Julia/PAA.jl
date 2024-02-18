@@ -116,62 +116,145 @@ end
 # -------------------------------------------------------
 # Funcion que permite transformar una matriz de valores reales con las salidas del clasificador o clasificadores en una matriz de valores booleanos con la clase en la que sera clasificada
 
-function classifyOutputs(outputs::AbstractArray{<:Real,1}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
-end;
+function classifyOutputs(outputs::AbstractArray{<:Real, 1}; threshold::Real=0.5) 
+    
+    vec = outputs .>= threshold
+    return reshape(vec, :, 1)
+end
+    
 
-function classifyOutputs(outputs::AbstractArray{<:Real,2}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
-end;
 
+function classifyOutputs(outputs::AbstractArray{<:Real, 2}; threshold::Real=0.5)
+    if size(outputs, 2) == 1
+        # Si tiene una columna, convertir a vector y devolver el resultado directamente
+        outputs_vec = vec(outputs)
+        return classifyOutputs(outputs_vec; threshold = threshold)
+        
+
+    else
+        # Si tiene más de una columna, obtener los índices de los máximos en cada fila
+        (_, indicesMaxEachInstance) = findmax(outputs, dims=2)
+        
+        # Crear una matriz booleana de la misma dimensionalidad que la matriz de salidas
+        output_matrix = falses(size(outputs))
+        
+        # Asignar a true los valores de los índices que contienen los máximos de cada fila
+        output_matrix[indicesMaxEachInstance] .= true
+        
+        return output_matrix
+    end
+end
 
 # -------------------------------------------------------
 # Funciones para calcular la precision
 
 function accuracy(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
-    #
-    # Codigo a desarrollar
-    #
-end;
+    @assert length(outputs) == length(targets) "Las matrices de salidas y objetivos deben tener la misma longitud"
+    
+    correct_predictions = sum(outputs .== targets)
+    total_predictions = length(outputs)
+    
+    return correct_predictions / total_predictions
+end
+
 function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2})
-    #
-    # Codigo a desarrollar
-    #
-end;
+    @assert length(outputs) == length(targets) "Las matrices de salidas y objetivos deben tener la misma longitud"
+    if size(outputs, 2) == 1
+        # Si solo tienen una columna, llamamos a la función anterior
+        return accuracy(outputs[:, 1], targets[:, 1])
+    else
+        # Si el número de columnas es mayor que 2, comparamos ambas matrices
+        return mean(outputs .== targets)
+    end
+end
+
 function accuracy(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    predictions = classifyOutputs(outputs, threshold = threshold)
+    return accuracy(predictions[:, 1], targets[:, 1])
+end
+
 function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    @assert size(outputs) == size(targets) "Las matrices de salidas y objetivos deben tener la misma dimensión"
+    
+    if size(outputs, 2) == 1
+        # Si solo tienen una columna, llamamos a la función anterior
+        return accuracy(outputs[:, 1], targets[:, 1])
+    else
+        # Si el número de columnas es mayor que 2, convertimos outputs a booleanos
+        predictions = classifyOutputs(outputs, threshold=threshold)
+        return accuracy(predictions, targets)
+    end
+end
 
 # -------------------------------------------------------
 # Funciones para crear y entrenar una RNA
 function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutputs::Int; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)))
-    #
-    # Codigo a desarrollar
-    #
-end;
+    @assert length(transferFunctions) == length(topology) "La cantidad de funciones de transferencia debe ser igual a la cantidad de capas"
+
+    # Crear una RNA vacía
+    ann = Chain()
+
+    # Crear una variable numInputsLayer
+    numInputsLayer = numInputs
+
+    # Añadir capas ocultas
+    for numOutputsLayer in topology
+        transferFunction = isempty(transferFunctions) ? σ : transferFunctions[1]
+        ann = Chain(ann, Dense(numInputsLayer, numOutputsLayer, transferFunction))
+        numInputsLayer = numOutputsLayer
+    end
+
+    # Añadir capa final
+    if numOutputs == 2
+        # Problema de clasificación binaria
+        ann = Chain(ann, Dense(numInputsLayer, 1, σ))
+    else
+        # Problema de clasificación multiclase
+        ann = Chain(ann, Dense(numInputsLayer, numOutputs, softmax))
+    end
+
+    return ann
+end
 
 function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    # Obtener el número de neuronas de entrada y salida
+    numInputs, numOutputs = size(dataset[1], 1), size(dataset[2], 2)
+
+    # Convertir dataset a Float32 si no lo es
+    dataset_float32 = (convert(Array{Float32, 2}, dataset[1]), convert(Array{Bool, 2}, dataset[2]))
+
+    # Crear la RNA
+    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions)
+
+    # Inicializar el vector de loss
+    losses = Float64[]
+
+    # Entrenar la RNA
+    for epoch in 1:maxEpochs
+        train!(ann, [dataset_float32[1]', dataset_float32[2]'])
+
+        # Calcular la pérdida
+        current_loss = crossentropy(ann(dataset_float32[1]'), dataset_float32[2]')
+
+        # Agregar la pérdida al vector
+        push!(losses, current_loss)
+
+        # Verificar el criterio de parada
+        if current_loss ≤ minLoss
+            break
+        end
+    end
+
+    return ann, losses
+end
 
 function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    #
-    # Codigo a desarrollar
-    #
-end;
+    # Convertir las salidas deseadas a una matriz de una sola columna
+    targets_matrix = reshape(targets, :, 1)
+
+    # Llamar a la función principal
+    return trainClassANN(topology, (inputs, targets_matrix), transferFunctions=transferFunctions, maxEpochs=maxEpochs, minLoss=minLoss, learningRate=learningRate)
+end
 
 
 # ----------------------------------------------------------------------------------------------
