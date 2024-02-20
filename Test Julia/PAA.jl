@@ -189,7 +189,7 @@ end
 # -------------------------------------------------------
 # Funciones para crear y entrenar una RNA
 function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutputs::Int; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)))
-    @assert length(transferFunctions) == length(topology) "La cantidad de funciones de transferencia debe ser igual a la cantidad de capas"
+    @assert length(topology) >= 0 "El tamaño de la topología debe ser mayor o igual a cero"
 
     # Crear una RNA vacía
     ann = Chain()
@@ -198,9 +198,9 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
     numInputsLayer = numInputs
 
     # Añadir capas ocultas
-    for numOutputsLayer in topology
-        transferFunction = isempty(transferFunctions) ? σ : transferFunctions[1]
-        ann = Chain(ann, Dense(numInputsLayer, numOutputsLayer, transferFunction))
+    for (numOutputsLayer, transferFunction) in zip(topology, transferFunctions)
+        transferFunction = isempty(transferFunctions) ? σ : transferFunction
+        ann = Chain(ann..., Dense(numInputsLayer, numOutputsLayer, transferFunction))
         numInputsLayer = numOutputsLayer
     end
 
@@ -216,7 +216,7 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
     return ann
 end
 
-function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
+function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(Flux.σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
     # Obtener el número de neuronas de entrada y salida
     numInputs, numOutputs = size(dataset[1], 1), size(dataset[2], 2)
 
@@ -224,15 +224,14 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
     dataset_float32 = (convert(Array{Float32, 2}, dataset[1]), convert(Array{Bool, 2}, dataset[2]))
 
     # Crear la RNA
-    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions)
+    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
 
     # Inicializar el vector de loss
-    losses = Float64[]
-
+    losses = Float32[]
+    
     # Entrenar la RNA
     for epoch in 1:maxEpochs
-        train!(ann, [dataset_float32[1]', dataset_float32[2]'])
-
+        Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], ADAM(learningRate))
         # Calcular la pérdida
         current_loss = crossentropy(ann(dataset_float32[1]'), dataset_float32[2]')
 
@@ -248,7 +247,9 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
     return ann, losses
 end
 
-function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
+function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; 
+                        transferFunctions::AbstractArray{<:Function,1}=fill(Flux.σ, length(topology)), 
+                        maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
     # Convertir las salidas deseadas a una matriz de una sola columna
     targets_matrix = reshape(targets, :, 1)
 

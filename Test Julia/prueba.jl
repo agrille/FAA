@@ -1,5 +1,8 @@
+using Statistics
 using Flux
+using Flux.Losses
 using DelimitedFiles
+
 include("PAA.jl")   
 
 
@@ -92,4 +95,42 @@ diferencia = accuracy(outputs,classifications2)
 # print(classifications1, classifications2)
 print("Precisión del ",diferencia * 100 ,"%")
 
+
+# Definir la función σ
+# Definir funciones de transferencia personalizadas
+mi_funcion_σ(x) = 1 / (1 + exp(-x))
+mi_funcion_tanh(x) = tanh(x)
+
+# Definir la topología, el número de entradas y salidas
+topology = [5, 3]  # Por ejemplo, dos capas ocultas con 5 y 3 neuronas respectivamente
+numInputs = 10     # Número de neuronas de entrada
+numOutputs = 2     # Número de neuronas de salida (clasificación binaria)
+
+# Crear la RNA con funciones de transferencia por defecto (σ)
+ann_default = buildClassANN(numInputs, topology, numOutputs)
+
+# Crear la RNA con funciones de transferencia personalizadas
+transferFunctions_custom = [mi_funcion_σ, mi_funcion_tanh]
+ann_custom = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions_custom)
+
+# Crear conjuntos de datos de prueba
+inputs = rand(10, numInputs)  # 100 ejemplos de entrenamiento
+targets = rand(Bool, 10, numOutputs)  # Etiquetas de clasificación binaria
+
+# Entrenar las redes con conjuntos de datos de prueba
+# trained_ann_default, losses_default = trainClassANN(topology, (inputs, targets);)
+# trained_ann_custom, losses_custom = trainClassANN(topology, (inputs, targets), transferFunctions=transferFunctions_custom)
+
+# # Verificar los resultados
+# println("Red Neuronal Entrenada con funciones de transferencia por defecto:")
+# println(trained_ann_default)
+
+# println("\nRed Neuronal Entrenada con funciones de transferencia personalizadas:")
+# println(trained_ann_custom)
+
+# println("\nPérdidas durante el entrenamiento con funciones de transferencia por defecto:")
+# println(losses_default)
+
+# println("\nPérdidas durante el entrenamiento con funciones de transferencia personalizadas:")
+# println(losses_custom)
 
