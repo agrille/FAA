@@ -106,7 +106,7 @@ mi_funcion_tanh(x) = tanh(x)
 # Definir la topología, el número de entradas y salidas
 topology = [5, 3]  # Por ejemplo, dos capas ocultas con 5 y 3 neuronas respectivamente
 numInputs = 10     # Número de neuronas de entrada
-numOutputs = 2     # Número de neuronas de salida (clasificación binaria)
+numOutputs = 1     # Número de neuronas de salida (clasificación binaria)
 
 # Crear la RNA con funciones de transferencia por defecto (σ)
 ann_default = buildClassANN(numInputs, topology, numOutputs)
