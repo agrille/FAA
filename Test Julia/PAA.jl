@@ -228,10 +228,11 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
 
     # Inicializar el vector de loss
     losses = Float32[]
-    
+    loss(model, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);
+    opt_state = Flux.setup(Adam(learningRate), ann)
     # Entrenar la RNA
     for epoch in 1:maxEpochs
-        Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], ADAM(learningRate))
+        Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], opt_state)
         # Calcular la pérdida
         current_loss = crossentropy(ann(dataset_float32[1]'), dataset_float32[2]')
 
@@ -247,7 +248,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
     return ann, losses
 end
 
-function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; 
+function trainClassANN3(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; 
                         transferFunctions::AbstractArray{<:Function,1}=fill(Flux.σ, length(topology)), 
                         maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
     # Convertir las salidas deseadas a una matriz de una sola columna
@@ -279,7 +280,7 @@ end;
 
 # Funcion para entrenar RR.NN.AA. con conjuntos de entrenamiento, validacion y test. Estos dos ultimos son opcionales
 # Es la funcion anterior, modificada para calcular errores en los conjuntos de validacion y test y realizar parada temprana si es necesario
-function trainClassANN(topology::AbstractArray{<:Int,1},
+function trainClassANN2(topology::AbstractArray{<:Int,1},
     trainingDataset::  Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}};
     validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)),
     testDataset::      Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)),
@@ -291,7 +292,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
 end;
 
 
-function trainClassANN(topology::AbstractArray{<:Int,1},
+function trainClassANN2(topology::AbstractArray{<:Int,1},
     trainingDataset::  Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
     validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
     testDataset::      Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
