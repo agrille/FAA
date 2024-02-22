@@ -210,13 +210,14 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
         ann = Chain(ann, Dense(numInputsLayer, 1, σ))
     else
         # Problema de clasificación multiclase
-        ann = Chain(ann, Dense(numInputsLayer, numOutputs, softmax))
+        ann = Chain(ann, Dense(numInputsLayer, numOutputs), softmax)
     end
 
     return ann
 end
 
-function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(Flux.σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
+
+function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
     # Obtener el número de neuronas de entrada y salida
     numInputs, numOutputs = size(dataset[1], 1), size(dataset[2], 2)
 
@@ -228,11 +229,16 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
 
     # Inicializar el vector de loss
     losses = Float32[]
-    loss(model, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);
-    opt_state = Flux.setup(Adam(learningRate), ann)
+
+    # Crear la función de pérdida
+    loss(ann, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(ann(x),y) : Losses.crossentropy(ann(x),y);
+    # Crear el optimizador
+    opt = Flux.setup(Adam(learningRate), ann)
+
     # Entrenar la RNA
     for epoch in 1:maxEpochs
-        Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], opt_state)
+        Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], opt)
+
         # Calcular la pérdida
         current_loss = crossentropy(ann(dataset_float32[1]'), dataset_float32[2]')
 
@@ -248,15 +254,15 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
     return ann, losses
 end
 
-function trainClassANN3(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; 
-                        transferFunctions::AbstractArray{<:Function,1}=fill(Flux.σ, length(topology)), 
-                        maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
+function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
     # Convertir las salidas deseadas a una matriz de una sola columna
     targets_matrix = reshape(targets, :, 1)
 
     # Llamar a la función principal
     return trainClassANN(topology, (inputs, targets_matrix), transferFunctions=transferFunctions, maxEpochs=maxEpochs, minLoss=minLoss, learningRate=learningRate)
 end
+
+
 
 
 # ----------------------------------------------------------------------------------------------
