@@ -254,69 +254,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{Abstract
     return ann, losses
 end
 
-function trainClassANN(topology::AbstractArray{<:Int,1},
-    trainingDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}};
-    validationDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
-    testDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
-    maxEpochsVal::Int=20)
 
-    # Si el conjunto de validación no está vacío, se establece la parada temprana
-    early_stopping = !isempty(validationDataset)
-
-    # Inicializar los vectores de loss
-    training_loss = Float32[]
-    validation_loss = Float32[]
-    test_loss = Float32[]
-
-    # Inicializar la mejor RNA encontrada hasta el momento
-    best_model = Chain(Dense(size(trainingDataset[1], 2), topology[1], transferFunctions[1]),
-        [Dense(topology[i], topology[i+1], transferFunctions[i+1]) for i = 1:length(topology)-1]...,
-        Dense(topology[end], size(trainingDataset[2], 2)))
-
-    # Inicializar el mejor loss de validación encontrado hasta el momento
-    best_validation_loss = Inf
-
-    # Inicializar el contador de épocas sin mejorar el loss de validación
-    epochs_without_improvement = 0
-
-    # Ciclo de entrenamiento
-    for epoch in 0:maxEpochs-1
-        # Realizar un ciclo de entrenamiento
-        Flux.train!(loss, params(best_model), trainingDataset, ADAM(learningRate))
-
-        # Calcular el loss en el conjunto de entrenamiento
-        push!(training_loss, loss(best_model, trainingDataset...))
-
-        # Si se proporcionó un conjunto de validación, calcular el loss en el conjunto de validación
-        if early_stopping
-            validation_loss_current = loss(best_model, validationDataset...)
-            push!(validation_loss, validation_loss_current)
-
-            # Verificar si se ha encontrado un mejor loss de validación
-            if validation_loss_current < best_validation_loss
-                best_model = deepcopy(best_model) # Guardar una copia de la mejor RNA
-                best_validation_loss = validation_loss_current
-                epochs_without_improvement = 0
-            else
-                epochs_without_improvement += 1
-            end
-
-            # Verificar si se ha alcanzado el criterio de parada temprana
-            if epochs_without_improvement >= maxEpochsVal
-                break
-            end
-        end
-    end
-
-    # Calcular el loss en el conjunto de test si está disponible
-    if !isempty(testDataset)
-        test_loss = loss(best_model, testDataset...)
-    end
-
-    return (best_model, training_loss, validation_loss, test_loss)
-end
 
 
 
