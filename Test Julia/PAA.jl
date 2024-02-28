@@ -272,145 +272,168 @@ end
 using Random
 
 function holdOut(N::Int, P::Real)
-    #
-    # Codigo a desarrollar
-    #
+    @assert 0 <= P <= 1 "El valor de P debe estar entre 0 y 1"
+
+    # Obtener el número de patrones para el conjunto de test
+    numTest = round(Int, N * P)
+
+    # Obtener los índices de todos los patrones
+    all_indices = randperm(N)
+
+    # Tomar los primeros numTest índices para el conjunto de test
+    test_indices = all_indices[1:numTest]
+
+    # Tomar el resto de los índices para el conjunto de entrenamiento
+    train_indices = all_indices[numTest+1:end]
+
+    return train_indices, test_indices
 end;
 
 function holdOut(N::Int, Pval::Real, Ptest::Real)
-    #
-    # Codigo a desarrollar
-    #
+    @assert 0 <= Pval +  Ptest <= 1 "No puedes usar más patrónes de los que tienes, Pval y Ptest deben estar entre 0 y 1"
+
+
+    # Obtener los índices para el conjunto de test
+    train_indices, remaining_indices = holdOut(N, Pval + Ptest)
+
+    # Obtener los índices para el conjunto de validación
+    val_indices, test_indices = holdOut(length(remaining_indices), Pval / (Pval + Ptest))
+
+    # Ajustar los índices a los originales
+    val_indices = remaining_indices[val_indices]
+    test_indices = remaining_indices[test_indices]
+
+    return train_indices, val_indices, test_indices
 end;
 
 
-# Funcion para entrenar RR.NN.AA. con conjuntos de entrenamiento, validacion y test. Estos dos ultimos son opcionales
-# Es la funcion anterior, modificada para calcular errores en los conjuntos de validacion y test y realizar parada temprana si es necesario
-function trainClassANN2(topology::AbstractArray{<:Int,1},
-    trainingDataset::  Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}};
-    validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)),
-    testDataset::      Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)),
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, maxEpochsVal::Int=20)
-    #
-    # Codigo a desarrollar
-    #
-end;
+# # Funcion para entrenar RR.NN.AA. con conjuntos de entrenamiento, validacion y test. Estos dos ultimos son opcionales
+# # Es la funcion anterior, modificada para calcular errores en los conjuntos de validacion y test y realizar parada temprana si es necesario
+# function trainClassANN2(topology::AbstractArray{<:Int,1},
+#     trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}};
+#     validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)),
+#     testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0,0)),
+#     transferFunctions::AbstractArray{<:Function,1}=fill(mi_funcion_σ, length(topology)),
+#     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, maxEpochsVal::Int=20)
 
-
-function trainClassANN2(topology::AbstractArray{<:Int,1},
-    trainingDataset::  Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
-    validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
-    testDataset::      Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, maxEpochsVal::Int=20)
-    #
-    # Codigo a desarrollar
-    #
-end;
+#    #
+# end
 
 
 
-# ----------------------------------------------------------------------------------------------
-# ------------------------------------- Practica 4 ---------------------------------------------
-# ----------------------------------------------------------------------------------------------
+# function trainClassANN3(topology::AbstractArray{<:Int,1},
+#     trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
+#     validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
+#     testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=(Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
+#     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+#     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, maxEpochsVal::Int=20)
 
-
-
-function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-
-
-# ----------------------------------------------------------------------------------------------
-# ------------------------------------- Practica 5 ---------------------------------------------
-# ----------------------------------------------------------------------------------------------
-
-using Random
-using Random:seed!
-
-function crossvalidation(N::Int64, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-function crossvalidation(targets::AbstractArray{Bool,1}, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-function crossvalidation(targets::AbstractArray{Bool,2}, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
-end;
-
-function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
-    #
-    # Codigo a desarrollar
-    #
-end;
+#     #
+# end
 
 
 
 
+# # ----------------------------------------------------------------------------------------------
+# # ------------------------------------- Practica 4 ---------------------------------------------
+# # ----------------------------------------------------------------------------------------------
 
 
 
-function ANNCrossValidation(topology::AbstractArray{<:Int,1},
-    inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1},
-    crossValidationIndices::Array{Int64,1};
-    numExecutions::Int=50,
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, validationRatio::Real=0, maxEpochsVal::Int=20, showText::Bool=false)
-    #
-    # Codigo a desarrollar
-    #
-end;
+# function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+# function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+# function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+# function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+# function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
 
 
-# ----------------------------------------------------------------------------------------------
-# ------------------------------------- Practica 6 ---------------------------------------------
-# ----------------------------------------------------------------------------------------------
 
-using ScikitLearn: @sk_import, fit!, predict
+# # ----------------------------------------------------------------------------------------------
+# # ------------------------------------- Practica 5 ---------------------------------------------
+# # ----------------------------------------------------------------------------------------------
 
-@sk_import svm: SVC
-@sk_import tree: DecisionTreeClassifier
-@sk_import neighbors: KNeighborsClassifier
+# using Random
+# using Random:seed!
+
+# function crossvalidation(N::Int64, k::Int64)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+# function crossvalidation(targets::AbstractArray{Bool,1}, k::Int64)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+# function crossvalidation(targets::AbstractArray{Bool,2}, k::Int64)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+# function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
 
 
-function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
-    #
-    # Codigo a desarrollar
-    #
-end;
+
+
+
+
+
+# function ANNCrossValidation(topology::AbstractArray{<:Int,1},
+#     inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1},
+#     crossValidationIndices::Array{Int64,1};
+#     numExecutions::Int=50,
+#     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+#     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01, validationRatio::Real=0, maxEpochsVal::Int=20, showText::Bool=false)
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;
+
+
+# # ----------------------------------------------------------------------------------------------
+# # ------------------------------------- Practica 6 ---------------------------------------------
+# # ----------------------------------------------------------------------------------------------
+
+# using ScikitLearn: @sk_import, fit!, predict
+
+# @sk_import svm: SVC
+# @sk_import tree: DecisionTreeClassifier
+# @sk_import neighbors: KNeighborsClassifier
+
+
+# function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
+#     #
+#     # Codigo a desarrollar
+#     #
+# end;

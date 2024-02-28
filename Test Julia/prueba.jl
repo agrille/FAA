@@ -109,29 +109,33 @@ numInputs = 3   # Número de neuronas de entrada
 numOutputs = 5    # Número de neuronas de salida (clasificación binaria)
 
 # Crear la RNA con funciones de transferencia por defecto (σ)
-# ann_default = buildClassANN(numInputs, topology, numOutputs)
+ann_default = buildClassANN(numInputs, topology, numOutputs)
 
 # Crear la RNA con funciones de transferencia personalizadas
 transferFunctions_custom = [mi_funcion_σ, mi_funcion_tanh]
 ann_custom = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions_custom)
-# println(ann_custom)
+println(ann_custom)
 # # Crear conjuntos de datos de prueba
 inputs = rand(3, numInputs)  # 100 ejemplos de entrenamiento
 targets = rand(Bool, 3, numOutputs)  # Etiquetas de clasificación binaria
 print(ann_custom)
 # Entrenar las redes con conjuntos de datos de prueba
 trained_ann_default, losses_default = trainClassANN(topology, (inputs, targets);)
-trained_ann_custom, losses_custom = trainClassANN(topology, (inputs, targets), transferFunctions=transferFunctions_custom)
+# trained_ann_custom, losses_custom = trainClassANN(topology, (inputs, targets), transferFunctions=transferFunctions_custom)
 
-# # Verificar los resultados
+# Verificar los resultados
 println("Red Neuronal Entrenada con funciones de transferencia por defecto:")
 println(trained_ann_default)
 
 println("\nRed Neuronal Entrenada con funciones de transferencia personalizadas:")
-println(trained_ann_custom)
+# println(trained_ann_custom)
 
 println("\nPérdidas durante el entrenamiento con funciones de transferencia por defecto:")
 println(losses_default)
 
 println("\nPérdidas durante el entrenamiento con funciones de transferencia personalizadas:")
 # println(losses_custom)
+pval=  0.2
+ptest = 0.3
+x = holdOut(5,pval,ptest)
+print(x)
