@@ -9,11 +9,11 @@ include("PAA.jl")
 
 
 # Cargar datos y preparar entradas y salidas
-# dataset = readdlm("Iris.data", ',');
-# inputs = convert(Array{Float32, 2}, dataset[:, 1:4]);
-# classes = ["Iris-setosa"]
-# targets = oneHotEncoding(dataset[:, 5],classes);
-# numIns = size(inputs,1);
+dataset = readdlm("Iris.data", ',');
+inputs = convert(Array{Float32, 2}, dataset[:, 1:1]);
+classes = ["Iris-setosa"]
+targets = oneHotEncoding(dataset[:, 5],classes);
+numIns = size(inputs,1);
 
 # # Imprimir algunas muestras para verificar el preprocesamiento
 # println("Muestras con el oneHotEncoding:")
@@ -49,12 +49,13 @@ include("PAA.jl")
 
 
 # No nos dan los parámetros de normalización y se quiere modificar el array de entradas
-# inputs_copy = copy(inputs)
-# normalizeZeroMean!(inputs_copy)
-# for i in 1:150
-#     println("Entrada ",i," normalizada a 0: ", inputs_copy[i, :])
-# end
-# println("Datos normalizados con media 0 (modificando la matriz original sin parámetros):\n")
+normalization_params = calculateZeroMeanNormalizationParameters(inputs)
+inputs_copy = normalizeZeroMean(inputs,normalization_params)
+
+for i in 1:numIns
+    println("Entrada ",i," normalizada a 0: ", inputs_copy[i, :])
+end
+println("Datos normalizados con media 0 (modificando la matriz original sin parámetros):\n")
 
 # # Nos dan los parámetros de normalización y no se quiere modificar el array de entradas (se crea uno nuevo)
 # inputs_normalized = normalizeZeroMean(inputs, calculateZeroMeanNormalizationParameters(inputs))
@@ -73,17 +74,20 @@ include("PAA.jl")
 
 
 
-# filas = 5
-# columnas = 2
-# # Supongamos que tienes una matriz de salidas (ejemplo)
-# outputs = rand(Float32, filas, columnas)
-# outputs2 = rand(Float32, filas, columnas)
+filas = 5
+columnas = 3
+# Supongamos que tienes una matriz de salidas (ejemplo)
+outputs = rand(Float32, filas, columnas)
+outputs2 = rand(Float32, filas, columnas)
 
 
 
-# # Llamada a classifyOutputs
-# classifications1 = classifyOutputs(outputs)
-# classifications2 = classifyOutputs(outputs2)
+# Llamada a classifyOutputs
+classifications1 = classifyOutputs(outputs)
+classifications2 = classifyOutputs(outputs2)
+print(classifications1)
+print(classifications2)
+
 
 
 
@@ -109,33 +113,33 @@ numInputs = 3   # Número de neuronas de entrada
 numOutputs = 5    # Número de neuronas de salida (clasificación binaria)
 
 # Crear la RNA con funciones de transferencia por defecto (σ)
-ann_default = buildClassANN(numInputs, topology, numOutputs)
+# ann_default = buildClassANN(numInputs, topology, numOutputs)
 
-# Crear la RNA con funciones de transferencia personalizadas
-transferFunctions_custom = [mi_funcion_σ, mi_funcion_tanh]
-ann_custom = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions_custom)
-println(ann_custom)
-# # Crear conjuntos de datos de prueba
-inputs = rand(3, numInputs)  # 100 ejemplos de entrenamiento
-targets = rand(Bool, 3, numOutputs)  # Etiquetas de clasificación binaria
-print(ann_custom)
-# Entrenar las redes con conjuntos de datos de prueba
-trained_ann_default, losses_default = trainClassANN(topology, (inputs, targets);)
-# trained_ann_custom, losses_custom = trainClassANN(topology, (inputs, targets), transferFunctions=transferFunctions_custom)
+# # Crear la RNA con funciones de transferencia personalizadas
+# transferFunctions_custom = [mi_funcion_σ, mi_funcion_tanh]
+# ann_custom = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions_custom)
+# println(ann_custom)
+# # # Crear conjuntos de datos de prueba
+# inputs = rand(3, numInputs)  # 100 ejemplos de entrenamiento
+# targets = rand(Bool, 3, numOutputs)  # Etiquetas de clasificación binaria
+# print(ann_custom)
+# # Entrenar las redes con conjuntos de datos de prueba
+# trained_ann_default, losses_default = trainClassANN(topology, (inputs, targets);)
+# # trained_ann_custom, losses_custom = trainClassANN(topology, (inputs, targets), transferFunctions=transferFunctions_custom)
 
-# Verificar los resultados
-println("Red Neuronal Entrenada con funciones de transferencia por defecto:")
-println(trained_ann_default)
+# # Verificar los resultados
+# println("Red Neuronal Entrenada con funciones de transferencia por defecto:")
+# println(trained_ann_default)
 
-println("\nRed Neuronal Entrenada con funciones de transferencia personalizadas:")
-# println(trained_ann_custom)
+# println("\nRed Neuronal Entrenada con funciones de transferencia personalizadas:")
+# # println(trained_ann_custom)
 
-println("\nPérdidas durante el entrenamiento con funciones de transferencia por defecto:")
-println(losses_default)
+# println("\nPérdidas durante el entrenamiento con funciones de transferencia por defecto:")
+# println(losses_default)
 
-println("\nPérdidas durante el entrenamiento con funciones de transferencia personalizadas:")
-# println(losses_custom)
+# println("\nPérdidas durante el entrenamiento con funciones de transferencia personalizadas:")
+# # println(losses_custom)
 pval=  0.2
 ptest = 0.3
 x = holdOut(5,pval,ptest)
-print(x)
+println(x)
