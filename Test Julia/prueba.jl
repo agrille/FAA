@@ -3,7 +3,7 @@ using Flux
 using Flux.Losses
 using DelimitedFiles
 
-include("PAA.jl")   
+include("prb_jul.jl")   
 
 
 
@@ -14,6 +14,12 @@ inputs = convert(Array{Float32, 2}, dataset[:, 1:1]);
 classes = ["Iris-setosa"]
 targets = oneHotEncoding(dataset[:, 5],classes);
 numIns = size(inputs,1);
+
+trainingDataset = (inputs, targets)
+reshaped_training_targets = reshape(trainingDataset[2], :, 1)
+
+trainClassANN([3],(inputs, targets))
+
 
 # # Imprimir algunas muestras para verificar el preprocesamiento
 # println("Muestras con el oneHotEncoding:")

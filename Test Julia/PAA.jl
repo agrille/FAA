@@ -256,51 +256,112 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
 end
 
 
-function trainClassANN(topology::AbstractArray{<:Int,1}, dataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    # Obtener el número de neuronas de entrada y salida
-    numInputs, numOutputs = size(dataset[1], 1), size(dataset[2], 2)
 
-    # Convertir dataset a Float32 si no lo es
-    dataset_float32 = (convert(Array{Float32, 2}, dataset[1]), convert(Array{Bool, 2}, dataset[2]))
+function trainClassANN(topology::AbstractArray{<:Int,1},
+    trainingDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}};
+    validationDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=
+    (Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
+    testDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=
+    (Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
+    maxEpochsVal::Int=20)
+    numInputs, numOutputs = size(trainingDataset[1], 1), size(trainingDataset[2], 2)
+    # Inicializar la RNA
+    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions = transferFunctions)
 
-    # Crear la RNA
-    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
+    # Almacenar los valores de loss en cada ciclo de entrenamiento
+    training_losses = Float64[]
+    validation_losses = Float64[]
+    test_losses = Float64[]
 
-    # Inicializar el vector de loss
-    losses = Float32[]
+    # Calcular el loss inicial en el conjunto de entrenamiento
+    initial_training_loss = crossentropy(ann, trainingDataset[1], trainingDataset[2])
+    push!(training_losses, initial_training_loss)
 
-    # Crear la función de pérdida
-    loss(ann, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(ann(x),y) : Losses.crossentropy(ann(x),y);
-    # Crear el optimizador
-    opt = Flux.setup(Adam(learningRate), ann)
+    # Calcular el loss inicial en el conjunto de validación
+    initial_validation_loss = crossentropy(ann, validationDataset[1], validationDataset[2])
+    push!(validation_losses, initial_validation_loss)
 
-    # Entrenar la RNA
+    # Calcular el loss inicial en el conjunto de test
+    initial_test_loss = crossentropy(ann, testDataset[1], testDataset[2])
+    push!(test_losses, initial_test_loss)
+
+    best_validation_loss = initial_validation_loss
+    epochs_without_improvement = 0
+
+    # Entrenamiento
     for epoch in 1:maxEpochs
-        Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], opt)
+        # Entrenar un ciclo
+        train!(ann, trainingDataset[1], trainingDataset[2], learningRate)
 
-        # Calcular la pérdida
-        current_loss = crossentropy(ann(dataset_float32[1]'), dataset_float32[2]')
+        # Calcular loss en el conjunto de entrenamiento
+        training_loss = calculate_loss(ann, trainingDataset[1], trainingDataset[2])
+        push!(training_losses, training_loss)
 
-        # Agregar la pérdida al vector
-        push!(losses, current_loss)
+        # Calcular loss en el conjunto de validación
+        validation_loss = calculate_loss(ann, validationDataset[1], validationDataset[2])
+        push!(validation_losses, validation_loss)
 
-        # Verificar el criterio de parada
-        if current_loss ≤ minLoss
+        # Calcular loss en el conjunto de test
+        test_loss = calculate_loss(ann, testDataset[1], testDataset[2])
+        push!(test_losses, test_loss)
+
+        # Comprobar si se ha superado el criterio de parada en el conjunto de validación
+        if validationDataset[1] != [] && validation_loss < best_validation_loss
+            best_validation_loss = validation_loss
+            epochs_without_improvement = 0
+            best_ann = deepcopy(ann)  # Hacer una copia profunda de la RNA
+        else
+            epochs_without_improvement += 1
+        end
+
+        # Comprobar el criterio de parada temprana
+        if epochs_without_improvement >= maxEpochsVal
             break
         end
     end
 
-    return ann, losses
+    # Devolver la mejor RNA si se usó un conjunto de validación, 
+    # de lo contrario, la RNA del último ciclo de entrenamiento
+    if validationDataset[1] != []
+        return best_ann, training_losses, validation_losses, test_losses
+    else
+        return ann, training_losses, validation_losses, test_losses
+    end
 end
 
-function trainClassANN(topology::AbstractArray{<:Int,1}, (inputs, targets)::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}; transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)), maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    # Convertir las salidas deseadas a una matriz de una sola columna
-    targets_matrix = reshape(targets, :, 1)
 
-    # Llamar a la función principal
-    return trainClassANN(topology, (inputs, targets_matrix), transferFunctions=transferFunctions, maxEpochs=maxEpochs, minLoss=minLoss, learningRate=learningRate)
-end
+function trainClassANN(topology::AbstractArray{<:Int,1},
+    trainingDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,1}};
+    validationDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,1}}=
+    (Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0)),
+    testDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,1}}=
+    (Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0)),
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
+    maxEpochsVal::Int=20)
 
+    # Reshape de las salidas deseadas del conjunto de entrenamiento
+    reshaped_training_targets = reshape(trainingDataset[2], :, 1)
+
+    # Reshape de las salidas deseadas del conjunto de validación
+    reshaped_validation_targets = reshape(validationDataset[2], :, 1)
+
+    # Reshape de las salidas deseadas del conjunto de test
+    reshaped_test_targets = reshape(testDataset[2], :, 1)
+
+    # Llamar a la función original con las salidas deseadas reestructuradas
+    return trainClassANN(topology, 
+        reshaped_training_targets; 
+        validationDataset=reshaped_validation_targets,
+        testDataset=reshaped_test_targets,
+        transferFunctions = transferFunctions,
+        maxEpochs = maxEpochs,
+        minLoss = minLoss,
+        learningRate = learningRate,
+        maxEpochsVal = maxEpochsVal)
+    end
 
 
 
@@ -378,104 +439,104 @@ end;
 
 
 
-function trainClassANN(topology::AbstractArray{<:Int,1},
-    dataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}};
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
-    # Extraer las matrices de entradas y salidas deseadas
-    inputs, targets = dataset
+# function trainClassANN(topology::AbstractArray{<:Int,1},
+#     dataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}};
+#     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+#     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01)
+#     # Extraer las matrices de entradas y salidas deseadas
+#     inputs, targets = dataset
 
-    # Obtener el número de neuronas de entrada y salida
-    numInputs, numOutputs = size(inputs, 2), size(targets, 2)
+#     # Obtener el número de neuronas de entrada y salida
+#     numInputs, numOutputs = size(inputs, 2), size(targets, 2)
 
-    # Crear la red neuronal con la topología proporcionada
-    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
+#     # Crear la red neuronal con la topología proporcionada
+#     ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
 
-    # Vector para almacenar los valores de loss en cada ciclo de entrenamiento
-    lossValues = Vector{Float32}()
-    opt = Flux.setup(Adam(learningRate), ann)
-    # Entrenamiento de la red neuronal
-    for epoch in 1:maxEpochs
-        # Entrenar un ciclo
-        Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], opt)
+#     # Vector para almacenar los valores de loss en cada ciclo de entrenamiento
+#     lossValues = Vector{Float32}()
+#     opt = Flux.setup(Adam(learningRate), ann)
+#     # Entrenamiento de la red neuronal
+#     for epoch in 1:maxEpochs
+#         # Entrenar un ciclo
+#         Flux.train!(loss, ann, [(dataset_float32[1]', dataset_float32[2]')], opt)
 
 
-        # Calcular el valor de loss en cada ciclo de entrenamiento
-        loss = Flux.crossentropy(ann(inputs'), targets')
-        push!(lossValues, loss)
+#         # Calcular el valor de loss en cada ciclo de entrenamiento
+#         loss = Flux.crossentropy(ann(inputs'), targets')
+#         push!(lossValues, loss)
 
-        # Criterio de parada: si la pérdida es menor que minLoss, detener el entrenamiento
-        if loss < minLoss
-            break
-        end
-    end
+#         # Criterio de parada: si la pérdida es menor que minLoss, detener el entrenamiento
+#         if loss < minLoss
+#             break
+#         end
+#     end
 
-    return ann, lossValues
-end
+#     return ann, lossValues
+# end
 
-function trainClassANN(topology::AbstractArray{<:Int,1},
-    trainingDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}};
-    validationDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
-    testDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
-    maxEpochsVal::Int=20)
+# function trainClassANN(topology::AbstractArray{<:Int,1},
+#     trainingDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}};
+#     validationDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
+#     testDataset::Tuple{AbstractArray{<:Real,2},AbstractArray{Bool,2}}=(Array{eltype(trainingDataset[1]),2}(undef, 0, 0), falses(0, 0)),
+#     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+#     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
+#     maxEpochsVal::Int=20)
 
-    # Si el conjunto de validación no está vacío, se establece la parada temprana
-    early_stopping = !isempty(validationDataset)
+#     # Si el conjunto de validación no está vacío, se establece la parada temprana
+#     early_stopping = !isempty(validationDataset)
 
-    # Inicializar los vectores de loss
-    training_loss = Float32[]
-    validation_loss = Float32[]
-    test_loss = Float32[]
+#     # Inicializar los vectores de loss
+#     training_loss = Float32[]
+#     validation_loss = Float32[]
+#     test_loss = Float32[]
 
-    # Inicializar la mejor RNA encontrada hasta el momento
-    best_model = Chain(Dense(size(trainingDataset[1], 2), topology[1], transferFunctions[1]),
-        [Dense(topology[i], topology[i+1], transferFunctions[i+1]) for i = 1:length(topology)-1]...,
-        Dense(topology[end], size(trainingDataset[2], 2)))
+#     # Inicializar la mejor RNA encontrada hasta el momento
+#     best_model = Chain(Dense(size(trainingDataset[1], 2), topology[1], transferFunctions[1]),
+#         [Dense(topology[i], topology[i+1], transferFunctions[i+1]) for i = 1:length(topology)-1]...,
+#         Dense(topology[end], size(trainingDataset[2], 2)))
 
-    # Inicializar el mejor loss de validación encontrado hasta el momento
-    best_validation_loss = Inf
+#     # Inicializar el mejor loss de validación encontrado hasta el momento
+#     best_validation_loss = Inf
 
-    # Inicializar el contador de épocas sin mejorar el loss de validación
-    epochs_without_improvement = 0
+#     # Inicializar el contador de épocas sin mejorar el loss de validación
+#     epochs_without_improvement = 0
 
-    # Ciclo de entrenamiento
-    for epoch in 0:maxEpochs-1
-        # Realizar un ciclo de entrenamiento
-        Flux.train!(loss, params(best_model), trainingDataset, ADAM(learningRate))
+#     # Ciclo de entrenamiento
+#     for epoch in 0:maxEpochs-1
+#         # Realizar un ciclo de entrenamiento
+#         Flux.train!(loss, params(best_model), trainingDataset, ADAM(learningRate))
 
-        # Calcular el loss en el conjunto de entrenamiento
-        push!(training_loss, loss(best_model, trainingDataset...))
+#         # Calcular el loss en el conjunto de entrenamiento
+#         push!(training_loss, loss(best_model, trainingDataset...))
 
-        # Si se proporcionó un conjunto de validación, calcular el loss en el conjunto de validación
-        if early_stopping
-            validation_loss_current = loss(best_model, validationDataset...)
-            push!(validation_loss, validation_loss_current)
+#         # Si se proporcionó un conjunto de validación, calcular el loss en el conjunto de validación
+#         if early_stopping
+#             validation_loss_current = loss(best_model, validationDataset...)
+#             push!(validation_loss, validation_loss_current)
 
-            # Verificar si se ha encontrado un mejor loss de validación
-            if validation_loss_current < best_validation_loss
-                best_model = deepcopy(best_model) # Guardar una copia de la mejor RNA
-                best_validation_loss = validation_loss_current
-                epochs_without_improvement = 0
-            else
-                epochs_without_improvement += 1
-            end
+#             # Verificar si se ha encontrado un mejor loss de validación
+#             if validation_loss_current < best_validation_loss
+#                 best_model = deepcopy(best_model) # Guardar una copia de la mejor RNA
+#                 best_validation_loss = validation_loss_current
+#                 epochs_without_improvement = 0
+#             else
+#                 epochs_without_improvement += 1
+#             end
 
-            # Verificar si se ha alcanzado el criterio de parada temprana
-            if epochs_without_improvement >= maxEpochsVal
-                break
-            end
-        end
-    end
+#             # Verificar si se ha alcanzado el criterio de parada temprana
+#             if epochs_without_improvement >= maxEpochsVal
+#                 break
+#             end
+#         end
+#     end
 
-    # Calcular el loss en el conjunto de test si está disponible
-    if !isempty(testDataset)
-        test_loss = loss(best_model, testDataset...)
-    end
+#     # Calcular el loss en el conjunto de test si está disponible
+#     if !isempty(testDataset)
+#         test_loss = loss(best_model, testDataset...)
+#     end
 
-    return (best_model, training_loss, validation_loss, test_loss)
-end
+#     return (best_model, training_loss, validation_loss, test_loss)
+# end
 
 
 # ----------------------------------------------------------------------------------------------
