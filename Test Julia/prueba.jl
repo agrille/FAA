@@ -3,14 +3,14 @@ using Flux
 using Flux.Losses
 using DelimitedFiles
 
-include("prb_jul.jl")   
+include("PAA.jl")   
 
 
 
 
 # Cargar datos y preparar entradas y salidas
 dataset = readdlm("Iris.data", ',');
-inputs = convert(Array{Float32, 2}, dataset[:, 1:1]);
+inputs = convert(Array{Float32, 2}, dataset[:, 1,4:1]);
 classes = ["Iris-setosa"]
 targets = oneHotEncoding(dataset[:, 5],classes);
 numIns = size(inputs,1);
@@ -18,7 +18,12 @@ numIns = size(inputs,1);
 trainingDataset = (inputs, targets)
 reshaped_training_targets = reshape(trainingDataset[2], :, 1)
 
-trainClassANN([3],(inputs, targets))
+
+trainClassANN([3],trainingDataset)
+outputs = rand(Float16,10,3)
+# outputs_example = rand(Bool, 100,3) .> 0.5  # Vector aleatorio de Booleanos (puedes cambiar el tamaño según tus necesidades)
+targets_example = rand(Bool, 10,3) 
+# confusionMatrix(outputs, targets_example)
 
 
 # # Imprimir algunas muestras para verificar el preprocesamiento
@@ -55,13 +60,13 @@ trainClassANN([3],(inputs, targets))
 
 
 # No nos dan los parámetros de normalización y se quiere modificar el array de entradas
-normalization_params = calculateZeroMeanNormalizationParameters(inputs)
-inputs_copy = normalizeZeroMean(inputs,normalization_params)
+# normalization_params = calculateZeroMeanNormalizationParameters(inputs)
+# inputs_copy = normalizeZeroMean(inputs,normalization_params)
 
-for i in 1:numIns
-    println("Entrada ",i," normalizada a 0: ", inputs_copy[i, :])
-end
-println("Datos normalizados con media 0 (modificando la matriz original sin parámetros):\n")
+# for i in 1:numIns
+#     println("Entrada ",i," normalizada a 0: ", inputs_copy[i, :])
+# end
+# println("Datos normalizados con media 0 (modificando la matriz original sin parámetros):\n")
 
 # # Nos dan los parámetros de normalización y no se quiere modificar el array de entradas (se crea uno nuevo)
 # inputs_normalized = normalizeZeroMean(inputs, calculateZeroMeanNormalizationParameters(inputs))
@@ -80,19 +85,19 @@ println("Datos normalizados con media 0 (modificando la matriz original sin par�
 
 
 
-filas = 5
-columnas = 3
-# Supongamos que tienes una matriz de salidas (ejemplo)
-outputs = rand(Float32, filas, columnas)
-outputs2 = rand(Float32, filas, columnas)
+# filas = 5
+# columnas = 3
+# # Supongamos que tienes una matriz de salidas (ejemplo)
+# outputs = rand(Float32, filas, columnas)
+# outputs2 = rand(Float32, filas, columnas)
 
 
 
 # Llamada a classifyOutputs
-classifications1 = classifyOutputs(outputs)
-classifications2 = classifyOutputs(outputs2)
-print(classifications1)
-print(classifications2)
+# classifications1 = classifyOutputs(outputs)
+# classifications2 = classifyOutputs(outputs2)
+# print(classifications1)
+# print(classifications2)
 
 
 
@@ -110,13 +115,13 @@ print(classifications2)
 
 # Definir la función σ
 # Definir funciones de transferencia personalizadas
-mi_funcion_σ(x) = 1 / (1 + exp(-x))
-mi_funcion_tanh(x) = tanh(x)
+# mi_funcion_σ(x) = 1 / (1 + exp(-x))
+# mi_funcion_tanh(x) = tanh(x)
 
 # Definir la topología, el número de entradas y salidas
-topology = [5, 3]  # Por ejemplo, dos capas ocultas con 5 y 3 neuronas respectivamente
-numInputs = 3   # Número de neuronas de entrada
-numOutputs = 5    # Número de neuronas de salida (clasificación binaria)
+# topology = [5, 3]  # Por ejemplo, dos capas ocultas con 5 y 3 neuronas respectivamente
+# numInputs = 3   # Número de neuronas de entrada
+# numOutputs = 5    # Número de neuronas de salida (clasificación binaria)
 
 # Crear la RNA con funciones de transferencia por defecto (σ)
 # ann_default = buildClassANN(numInputs, topology, numOutputs)
@@ -145,7 +150,8 @@ numOutputs = 5    # Número de neuronas de salida (clasificación binaria)
 
 # println("\nPérdidas durante el entrenamiento con funciones de transferencia personalizadas:")
 # # println(losses_custom)
-pval=  0.2
-ptest = 0.3
-x = holdOut(5,pval,ptest)
-println(x)
+# pval=  0.2
+# ptest = 0.3
+# x = holdOut(10,0.3,0.2)
+# println(x)
+
