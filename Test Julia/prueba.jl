@@ -5,25 +5,27 @@ using DelimitedFiles
 
 include("PAA.jl")   
 
+si = crossvalidation(dataset[1:100, 5],10)
 
 
 
 # Cargar datos y preparar entradas y salidas
 dataset = readdlm("Iris.data", ',');
-inputs = convert(Array{Float32, 2}, dataset[:, 1,4:1]);
+inputs = convert(Array{Float32, 2}, dataset[1:100, 1:4]);
 classes = ["Iris-setosa"]
-targets = oneHotEncoding(dataset[:, 5],classes);
+targets = dataset[1:100, 5]
 numIns = size(inputs,1);
 
 trainingDataset = (inputs, targets)
 reshaped_training_targets = reshape(trainingDataset[2], :, 1)
 
-
-trainClassANN([3],trainingDataset)
-outputs = rand(Float16,10,3)
-# outputs_example = rand(Bool, 100,3) .> 0.5  # Vector aleatorio de Booleanos (puedes cambiar el tamaño según tus necesidades)
-targets_example = rand(Bool, 10,3) 
-# confusionMatrix(outputs, targets_example)
+ANNCrossValidation([3],inputs, targets, si)
+outputs = rand(Float32,300)
+outputs_example = classifyOutputs(outputs)
+print(inputs) # Vector aleatorio de Booleanos (puedes cambiar el tamaño según tus necesidades)
+targets_example = rand(Bool, 100) 
+print(targets)
+printConfusionMatrix(outputs_example, outputs_example)
 
 
 # # Imprimir algunas muestras para verificar el preprocesamiento

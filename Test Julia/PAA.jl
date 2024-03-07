@@ -440,49 +440,33 @@ function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArra
 end
 
 function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
-    # Verificar que el número de columnas en ambas matrices es igual y distinto de 2
-    if size(outputs, 2) != size(targets, 2) || size(outputs, 2) == 2
-        error("Las matrices deben tener el mismo número de columnas distinto de 2.")
-    end
+    # Verificar que ambas matrices tengan el mismo número de columnas y no sean matrices de dos columnas
+    @assert size(outputs, 2) == size(targets, 2) != 2 "Las matrices deben tener el mismo número de columnas y no pueden tener solo dos columnas"
 
     num_classes = size(outputs, 2)
 
-    # Vectores para almacenar las métricas por clase
-    sensitivity = Float32[]
-    specificity = Float32[]
-    precision_pos = Float32[]
-    precision_neg = Float32[]
-    f1_score = Float32[]
+    # Inicializar vectores de métricas por clase
+    sensitivity = zeros(Float64, num_classes)
+    specificity = zeros(Float64, num_classes)
+    precision_pos = zeros(Float64, num_classes)
+    precision_neg = zeros(Float64, num_classes)
+    f1_score = zeros(Float64, num_classes)
 
-    # Matriz de confusión
-    confusion = zeros(Int, num_classes, num_classes)
+    # Inicializar matriz de confusión
+    confusion_matrix = [confusionMatrix(outputs[:, i], targets[:, i]) for i in 1:num_classes]
 
-    # Calcular métricas para cada clase y actualizar la matriz de confusión
-    for c in 1:num_classes
-        output_class = outputs[:, c]
-        target_class = targets[:, c]
-
-        accuracy, errorRate, sens, spec, prec_pos, prec_neg, f1, confusion_class = confusionMatrix(output_class, target_class)
-
-        confusion[c, :] = confusion_class[1, :]
-    
-        push!(sensitivity, sens)
-        push!(specificity, spec)
-        push!(precision_pos, prec_pos)
-        push!(precision_neg, prec_neg)
-        push!(f1_score, f1)
+    # Calcular métricas macro o weighted según se especifique
+    for i in 1:num_classes
+        sensitivity[i], _, _, specificity[i], precision_pos[i], precision_neg[i], f1_score[i], _ = confusion_matrix[i]
     end
 
-    # Calcular las métricas macro o weighted
     if weighted
-        total_samples_per_class = sum(targets, dims=1)
-        total_samples = sum(total_samples_per_class)
-
-        sensitivity = sum(sensitivity .* total_samples_per_class) / total_samples
-        specificity = sum(specificity .* total_samples_per_class) / total_samples
-        precision_pos = sum(precision_pos .* total_samples_per_class) / total_samples
-        precision_neg = sum(precision_neg .* total_samples_per_class) / total_samples
-        f1_score = sum(f1_score .* total_samples_per_class) / total_samples
+        weights = sum(targets, dims=1) / size(targets, 1)
+        sensitivity = sum(sensitivity .* weights)
+        specificity = sum(specificity .* weights)
+        precision_pos = sum(precision_pos .* weights)
+        precision_neg = sum(precision_neg .* weights)
+        f1_score = sum(f1_score .* weights)
     else
         sensitivity = mean(sensitivity)
         specificity = mean(specificity)
@@ -491,10 +475,11 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
         f1_score = mean(f1_score)
     end
 
-    accuracy = sum(confusion[i, i] for i in 1:min(size(confusion)...)) / sum(confusion)    
-    error_rate = 1 - accuracy
+    # Calcular la precisión y la tasa de error
+    accuracy_value = accuracy(outputs, targets, threshold=0.5)
+    error_rate = 1.0 - accuracy_value
 
-    return (accuracy, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, confusion)
+    return (accuracy_value, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, confusion_matrix)
 end
 
 
@@ -507,20 +492,15 @@ function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArra
 end
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
-    # Asegurar que todas las clases de outputs estén incluidas en las clases de targets
-    if !all(output -> output in targets, outputs)
-        error("No todas las clases de outputs están incluidas en las clases de targets.")
-    end
+    # Asegurar que todas las clases de salida estén incluidas en las clases deseadas
+    @assert all(in.(unique(outputs), unique(targets))) "Todas las clases de salida deben estar incluidas en las clases deseadas"
 
-    # Obtener las posibles clases
-    classes = unique([outputs; targets])
+    # Codificar las matrices outputs y targets
+    encoded_outputs = oneHotEncoding(outputs)
+    encoded_targets = oneHotEncoding(targets)
 
-    # Codificar las salidas del modelo y las salidas deseadas
-    outputs_encoded = oneHotEncoding(outputs, classes)
-    targets_encoded = oneHotEncoding(targets, classes)
-
-    # Llamar a la función confusionMatrix con los nuevos parámetros
-    return confusionMatrix(outputs_encoded, targets_encoded; weighted=weighted)
+    # Llamar a la función confusionMatrix con las matrices codificadas
+    return confusionMatrix(encoded_outputs, encoded_targets; weighted=weighted)
 end
 
 
@@ -542,7 +522,10 @@ function printConfusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractA
 
     # Imprimir la matriz de confusión
     println("Confusion Matrix:")
-    println(confusion)
+    print("VN: ",confusion[1]," ")
+    println("FP: ",confusion[2]," ")
+    print("FN: ",confusion[3]," ")
+    println("VP: ",confusion[4]," ")
 end
 
 function printConfusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
@@ -563,7 +546,10 @@ function printConfusionMatrix(outputs::AbstractArray{<:Real,1}, targets::Abstrac
 
     # Imprimir la matriz de confusión
     println("Confusion Matrix:")
-    println(confusion)
+    print("VN: ",confusion[1]," ")
+    println("FP: ",confusion[2]," ")
+    print("FN: ",confusion[3]," ")
+    println("VP: ",confusion[4]," ")
 end
 
 function printConfusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
@@ -580,7 +566,11 @@ function printConfusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractA
     println("Negative Predictive Value: $(confusion[6])")
     println("F1 Score: $(confusion[7])")
     println("Matrix:")
+    println("Confusion Matrix:")
     display(confusion[8])
+    
+
+    
 end
 
 function printConfusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
@@ -659,23 +649,24 @@ function crossvalidation(targets::AbstractArray{Bool,1}, k::Int64)
 end
 
 function crossvalidation(targets::AbstractArray{Bool,2}, k::Int64)
-    # Paso 1: Obtener el número de filas en la matriz targets
+    # Obtener el número total de patrones
     num_samples = size(targets, 1)
-    size = size(targets,2)
-    # Paso 2 y 3: Partición estratificada para cada clase
-    indices = fill(0, num_samples)
-    for class_idx in 1:size
-        # Obtener el número de elementos que pertenecen a esta clase
-        num_elements = sum(targets[:, class_idx])
 
-        # Partición estratificada para esta clase
-        class_indices = crossvalidation(num_elements, k)
+    # Crear un vector de índices con tantos valores como filas en la matriz targets
+    indices = collect(1:num_samples)
 
-        # Asignar los índices a las posiciones correspondientes en el vector de índices
-        indices[findall(targets[:, class_idx]), class_idx] .= class_indices
+    # Hacer un bucle sobre las clases y asignar valores al vector de índices
+    for class_column in eachcol(targets)
+        # Obtener el número de elementos que pertenecen a esa clase
+        num_elements = sum(class_column)
+
+        # Llamar a la función crossvalidation para obtener los índices de partición
+        partition_indices = crossvalidation(num_elements, k)
+
+        # Asignar los valores del vector resultado al vector de índices
+        indices[class_column] .= partition_indices
     end
 
-    # Paso 4: Devolver el vector de índices
     return indices
 end
 
@@ -717,82 +708,82 @@ end
 
 
 
-# function ANNCrossValidation(topology::AbstractArray{<:Int,1},
-#     inputs::AbstractArray{<:Real,2},
-#     targets::AbstractArray{<:Any,1},
-#     crossValidationIndices::Array{Int64,1};
-#     numExecutions::Int=50,
-#     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-#     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
-#     validationRatio::Real=0, maxEpochsVal::Int=20)
+function ANNCrossValidation(topology::AbstractArray{<:Int,1},
+    inputs::AbstractArray{<:Real,2},
+    targets::AbstractArray{<:Any,1},
+    crossValidationIndices::Array{Int64,1};
+    numExecutions::Int=50,
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
+    validationRatio::Real=0, maxEpochsVal::Int=20)
 
-#     # Convertir las salidas deseadas a one-hot-encoding
-#     encoded_targets = oneHotEncoding(targets)
+    # Convertir las salidas deseadas a one-hot-encoding
+    encoded_targets = oneHotEncoding(targets)
 
-#     # Calcular el número de folds
-#     num_folds = maximum(crossValidationIndices)
+    # Calcular el número de folds
+    num_folds = maximum(crossValidationIndices)
 
-#     # Inicializar vectores para almacenar las métricas
-#     precision = zeros(num_folds)
-#     error_rate = zeros(num_folds)
-#     sensitivity = zeros(num_folds)
-#     specificity = zeros(num_folds)
-#     VPP = zeros(num_folds)
-#     VPN = zeros(num_folds)
-#     F1 = zeros(num_folds)
+    # Inicializar vectores para almacenar las métricas
+    precision = zeros(num_folds)
+    error_rate = zeros(num_folds)
+    sensitivity = zeros(num_folds)
+    specificity = zeros(num_folds)
+    VPP = zeros(num_folds)
+    VPN = zeros(num_folds)
+    F1 = zeros(num_folds)
 
-#     # Iterar sobre cada fold
-#     for fold in 1:num_folds
-#         # Indices para el conjunto de entrenamiento y test
-#         train_indices = findall(x -> x != fold, crossValidationIndices)
-#         test_indices = findall(x -> x == fold, crossValidationIndices)
+    # Iterar sobre cada fold
+    for fold in 1:num_folds
+        # Indices para el conjunto de entrenamiento y test
+        train_indices = findall(x -> x != fold, crossValidationIndices)
+        test_indices = findall(x -> x == fold, crossValidationIndices)
 
-#         # Datos de entrenamiento y test
-#         train_inputs = inputs[:, train_indices]
-#         train_targets = encoded_targets[:, train_indices]
-#         test_inputs = inputs[:, test_indices]
-#         test_targets = encoded_targets[:, test_indices]
+        # Datos de entrenamiento y test
+        train_inputs = inputs[:, train_indices]
+        train_targets = encoded_targets[:, train_indices]
+        test_inputs = inputs[:, test_indices]
+        test_targets = encoded_targets[:, test_indices]
 
-#         # Variables para almacenar los resultados de cada ejecución
-#         metrics = zeros(numExecutions, 7)  # 7 métricas: precision, error_rate, sensitivity, specificity, VPP, VPN, F1
+        # Variables para almacenar los resultados de cada ejecución
+        metrics = zeros(numExecutions, 7)  # 7 métricas: precision, error_rate, sensitivity, specificity, VPP, VPN, F1
 
-#         # Iterar sobre cada ejecución dentro del fold
-#         for i in 1:numExecutions
-#             # Dividir el conjunto de entrenamiento en entrenamiento y validación si es necesario
-#             if validationRatio > 0
-#                 train_inputs, train_targets, val_inputs, val_targets = holdOut(train_inputs, train_targets, validationRatio)
-#             else
-#                 val_inputs, val_targets = [], []
-#             end
+        # Iterar sobre cada ejecución dentro del fold
+        for i in 1:numExecutions
+            # Dividir el conjunto de entrenamiento en entrenamiento y validación si es necesario
+            if validationRatio > 0
+                train_inputs, train_targets, val_inputs, val_targets = holdOut(train_inputs, train_targets, validationRatio)
+            else
+                val_inputs, val_targets = [], []
+            end
 
-#             Entrenar la RNA y obtener las métricas
-#             model = trainClassANN(topology=topology, (inputs=inputs, targets=targets),
-#                 transferFunctions=transferFunctions,maxEpochs=maxEpochs, 
-#                 minLoss=minLoss, learningRate=learningRate)
+            # Entrenar la RNA y obtener las métricas
+            model = trainClassANN(topology, (inputs, targets);
+                transferFunctions=transferFunctions,maxEpochs=maxEpochs, 
+                minLoss=minLoss, learningRate=learningRate)
 
-#             outputs = predictANN(model, test_inputs)
-#             confusion_matrix = confusionMatrix(outputs, test_targets)
-#             metrics[i, :] = [accuracy(confusion_matrix,targets), errorRate(confusion_matrix),
-#                 sensitivity(confusion_matrix), specificity(confusion_matrix),
-#                 positivePredictiveValue(confusion_matrix), negativePredictiveValue(confusion_matrix),
-#                 F1Score(confusion_matrix)]
-#         end
+            outputs = predictANN(model, test_inputs)
+            confusion_matrix = confusionMatrix(outputs, test_targets)
+            metrics[i, :] = [accuracy(confusion_matrix,targets), errorRate(confusion_matrix),
+                sensitivity(confusion_matrix), specificity(confusion_matrix),
+                positivePredictiveValue(confusion_matrix), negativePredictiveValue(confusion_matrix),
+                F1Score(confusion_matrix)]
+        end
 
-#         # Calcular la media y desviación estándar de las métricas para este fold
-#         precision[fold], std_precision = mean_and_std(metrics[:, 1])
-#         error_rate[fold], std_error_rate = mean_and_std(metrics[:, 2])
-#         sensitivity[fold], std_sensitivity = mean_and_std(metrics[:, 3])
-#         specificity[fold], std_specificity = mean_and_std(metrics[:, 4])
-#         VPP[fold], std_VPP = mean_and_std(metrics[:, 5])
-#         VPN[fold], std_VPN = mean_and_std(metrics[:, 6])
-#         F1[fold], std_F1 = mean_and_std(metrics[:, 7])
-#     end
+        # Calcular la media y desviación estándar de las métricas para este fold
+        precision[fold], std_precision = mean_and_std(metrics[:, 1])
+        error_rate[fold], std_error_rate = mean_and_std(metrics[:, 2])
+        sensitivity[fold], std_sensitivity = mean_and_std(metrics[:, 3])
+        specificity[fold], std_specificity = mean_and_std(metrics[:, 4])
+        VPP[fold], std_VPP = mean_and_std(metrics[:, 5])
+        VPN[fold], std_VPN = mean_and_std(metrics[:, 6])
+        F1[fold], std_F1 = mean_and_std(metrics[:, 7])
+    end
 
-#     # Devolver las métricas
-#     return (precision=(precision, std_precision), error_rate=(error_rate, std_error_rate),
-#         sensitivity=(sensitivity, std_sensitivity), specificity=(specificity, std_specificity),
-#         VPP=(VPP, std_VPP), VPN=(VPN, std_VPN), F1=(F1, std_F1))
-# end
+    # Devolver las métricas
+    return (precision=(precision, std_precision), error_rate=(error_rate, std_error_rate),
+        sensitivity=(sensitivity, std_sensitivity), specificity=(specificity, std_specificity),
+        VPP=(VPP, std_VPP), VPN=(VPN, std_VPN), F1=(F1, std_F1))
+end
 
 # Función auxiliar para calcular la media y desviación estándar
 function mean_and_std(values)
@@ -800,20 +791,21 @@ function mean_and_std(values)
 end
 
 
+
 # ----------------------------------------------------------------------------------------------
 # ------------------------------------- Practica 6 ---------------------------------------------
 # ----------------------------------------------------------------------------------------------
 
-# using ScikitLearn: @sk_import, fit!, predict
+using ScikitLearn: @sk_import, fit!, predict
 
-# @sk_import svm: SVC
-# @sk_import tree: DecisionTreeClassifier
-# @sk_import neighbors: KNeighborsClassifier
+@sk_import svm: SVC
+@sk_import tree: DecisionTreeClassifier
+@sk_import neighbors: KNeighborsClassifier
 
 
-# function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
-#     #
-#     # Codigo a desarrollar
-#     #
-# end;
+function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
+    #
+    # Codigo a desarrollar
+    #
+end;
 
