@@ -148,7 +148,8 @@ function classifyOutputs(outputs::AbstractArray{<:Real, 2}; threshold::Real=0.5)
     if size(outputs, 2) == 1
         # Si tiene una columna, convertir a vector y devolver el resultado directamente
         outputs_vec = vec(outputs)
-        return classifyOutputs(outputs_vec; threshold = threshold)
+        new_vec = classifyOutputs(outputs_vec; threshold = threshold)
+        return reshape(new_vec, length(new_vec), 1)
         
 
     else
@@ -732,6 +733,10 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     VPN = zeros(num_folds)
     F1 = zeros(num_folds)
 
+    function mean_and_std(values)
+        return mean(values), std(values)
+    end
+
     # Iterar sobre cada fold
     for fold in 1:num_folds
         # Indices para el conjunto de entrenamiento y test
@@ -783,11 +788,6 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     return (precision=(precision, std_precision), error_rate=(error_rate, std_error_rate),
         sensitivity=(sensitivity, std_sensitivity), specificity=(specificity, std_specificity),
         VPP=(VPP, std_VPP), VPN=(VPN, std_VPN), F1=(F1, std_F1))
-end
-
-# Función auxiliar para calcular la media y desviación estándar
-function mean_and_std(values)
-    return mean(values), std(values)
 end
 
 
