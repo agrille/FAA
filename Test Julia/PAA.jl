@@ -718,6 +718,11 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
     validationRatio::Real=0, maxEpochsVal::Int=20)
 
+    # Función auxiliar para calcular la media y desviación estándar
+    function mean_and_std(values)
+        return mean(values), std(values)
+    end
+
     # Convertir las salidas deseadas a one-hot-encoding
     encoded_targets = oneHotEncoding(targets)
 
@@ -785,12 +790,6 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
         sensitivity=(sensitivity, std_sensitivity), specificity=(specificity, std_specificity),
         VPP=(VPP, std_VPP), VPN=(VPN, std_VPN), F1=(F1, std_F1))
 end
-
-# Función auxiliar para calcular la media y desviación estándar
-function mean_and_std(values)
-    return mean(values), std(values)
-end
-
 
 
 # ----------------------------------------------------------------------------------------------

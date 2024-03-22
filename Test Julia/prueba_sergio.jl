@@ -16,3 +16,5 @@ print(classifyOutputs(outputs))
 np = calculateZeroMeanNormalizationParameters(outputs)
 normalizeZeroMean!(outputs)
 print(outputs)
+
+accuracy(outputs, outputs)
