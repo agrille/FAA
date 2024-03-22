@@ -5,27 +5,49 @@ using DelimitedFiles
 
 include("PAA.jl")   
 
-si = crossvalidation(dataset[1:100, 5],10)
+
+dataset = rand(Float32,5,3)
+salidas = rand(Bool, 5,1)
+
+ann = trainClassANN([3,4,2],(dataset,salidas))
+
+
+print(ann)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# si = crossvalidation(dataset[1:100, 5],10)
 # Cargar datos y preparar entradas y salidas
-dataset = readdlm("Iris.data", ',');
-inputs = convert(Array{Float32, 2}, dataset[1:100, 1:4]);
-classes = ["Iris-setosa"]
-targets = dataset[1:100, 5]
-numIns = size(inputs,1);
+# dataset = readdlm("Iris.data", ',');
+# inputs = convert(Array{Float32, 2}, dataset[1:100, 1:4]);
+# classes = ["Iris-setosa"]
+# targets = dataset[1:100, 5]
+# numIns = size(inputs,1);
 
-trainingDataset = (inputs, targets)
-reshaped_training_targets = reshape(trainingDataset[2], :, 1)
+# trainingDataset = (inputs, targets)
+# reshaped_training_targets = reshape(trainingDataset[2], :, 1)
 
-ANNCrossValidation([3],inputs, targets, si)
-outputs = rand(Float32,300)
-outputs_example = classifyOutputs(outputs)
-print(inputs) # Vector aleatorio de Booleanos (puedes cambiar el tamaño según tus necesidades)
-targets_example = rand(Bool, 100) 
-print(targets)
-printConfusionMatrix(outputs_example, outputs_example)
+# ANNCrossValidation([3],inputs, targets, si)
+# outputs = rand(Float32,300)
+# outputs_example = classifyOutputs(outputs)
+# print(inputs) # Vector aleatorio de Booleanos (puedes cambiar el tamaño según tus necesidades)
+# targets_example = rand(Bool, 100) 
+# print(targets)
+# printConfusionMatrix(outputs_example, outputs_example)
 
 
 # # Imprimir algunas muestras para verificar el preprocesamiento

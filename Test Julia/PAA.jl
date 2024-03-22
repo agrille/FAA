@@ -231,9 +231,12 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
     end
 
     # Añadir capa final
-    if numOutputs == 2
+    if numOutputs == 1  
         # Problema de clasificación binaria
         ann = Chain(ann..., Dense(numInputsLayer, 1, σ))
+    elseif numOutputs == 2 
+        # Problema de clasificación binaria
+        ann = Chain(ann..., Dense(numInputsLayer, 2, σ))
     else
         # Problema de clasificación multiclase
         ann = Chain(ann..., Dense(numInputsLayer, numOutputs), softmax)
