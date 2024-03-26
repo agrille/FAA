@@ -107,7 +107,7 @@ function normalizeZeroMean!(dataset::AbstractArray{<:Real,2}, normalizationParam
 
     if size(dataset, 2) == size(mean_values, 2) == size(std, 2)
         dataset .-= mean_values
-        dataset ./ std
+        dataset ./= std
         return dataset
     else
         throw(ArgumentError("Error"))
@@ -139,7 +139,8 @@ end
 function classifyOutputs(outputs::AbstractArray{<:Real, 1}; threshold::Real=0.5) 
     
     vec = outputs .>= threshold
-    return vec
+    return reshape(vec, :, 1)
+    
 end
     
 
