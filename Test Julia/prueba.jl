@@ -7,7 +7,9 @@ include("PAA.jl")
 
 
 dataset = rand(Float32,5,1)
-salidas = rand(Bool, 5,1)
+salidas = rand(Bool, 5,9)
+exits = rand(Bool, 5,9)
+
 
 ann = trainClassANN([3,4,2],(dataset,salidas))
 
@@ -18,6 +20,8 @@ print(ann)
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(dataset)
+
+accuracy(salidas,exits)
 
 
 

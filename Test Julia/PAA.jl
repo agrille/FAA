@@ -187,7 +187,9 @@ function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}
         return accuracy(outputs[:, 1], targets[:, 1])
     else
         # Si el número de columnas es mayor que 2, comparamos ambas matrices
-        return mean(outputs .== targets)
+        correct_predictions = sum(outputs .== targets)
+        total_predictions = length(outputs)
+        return correct_predictions / total_predictions
     end
 end
 
@@ -325,36 +327,45 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     end
 
 
-function trainClassANN(topology::AbstractArray{<:Int,1},
-    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
-    validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
-    (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
-    testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
-    (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
-    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
-    maxEpochsVal::Int=20)
-
-    # Reshape de las salidas deseadas del conjunto de entrenamiento
-    reshaped_training_targets = reshape(trainingDataset[2], :, 1)
-
-    # Reshape de las salidas deseadas del conjunto de validación
-    reshaped_validation_targets = reshape(validationDataset[2], :, 1)
-
-    # Reshape de las salidas deseadas del conjunto de test
-    reshaped_test_targets = reshape(testDataset[2], :, 1)
-
-    # Llamar a la función original con las salidas deseadas reestructuradas
-    return trainClassANN(topology, 
-        (trainingDataset[1], reshaped_training_targets); 
-        validationDataset=(validationDataset[1],reshaped_validation_targets),
-        testDataset=(testDataset[1],reshaped_test_targets),
-        transferFunctions = transferFunctions,
-        maxEpochs = maxEpochs,
-        minLoss = minLoss,
-        learningRate = learningRate,
-        maxEpochsVal = maxEpochsVal)
+    function trainClassANN(topology::AbstractArray{<:Int,1},
+        trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
+        validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
+        (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
+        testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
+        (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
+        transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+        maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
+        maxEpochsVal::Int=20)
+    
+        # Reshape de las salidas deseadas del conjunto de entrenamiento
+        reshaped_training_targets = reshape(trainingDataset[2], :, 1)
+    
+        # Reshape de las salidas deseadas del conjunto de validación
+        if !isempty(validationDataset[1])
+            reshaped_validation_targets = reshape(validationDataset[2], :, 1)
+        else
+            reshaped_validation_targets = falses(0, 1)  # Salidas vacías
+        end
+    
+        # Reshape de las salidas deseadas del conjunto de test
+        if !isempty(testDataset[1])
+            reshaped_test_targets = reshape(testDataset[2], :, 1)
+        else
+            reshaped_test_targets = falses(0, 1)  # Salidas vacías
+        end
+    
+        # Llamar a la función original con las salidas deseadas reestructuradas
+        return trainClassANN(topology, 
+            (trainingDataset[1], reshaped_training_targets); 
+            validationDataset=(validationDataset[1], reshaped_validation_targets),
+            testDataset=(testDataset[1], reshaped_test_targets),
+            transferFunctions = transferFunctions,
+            maxEpochs = maxEpochs,
+            minLoss = minLoss,
+            learningRate = learningRate,
+            maxEpochsVal = maxEpochsVal)
     end
+    
 
 
 
