@@ -139,7 +139,7 @@ end
 function classifyOutputs(outputs::AbstractArray{<:Real, 1}; threshold::Real=0.5) 
     
     vec = outputs .>= threshold
-    return reshape(vec, :, 1)
+    return vec
     
 end
     
@@ -150,7 +150,8 @@ function classifyOutputs(outputs::AbstractArray{<:Real, 2}; threshold::Real=0.5)
     if size(outputs, 2) == 1
         # Si tiene una columna, convertir a vector y devolver el resultado directamente
         outputs_vec = vec(outputs)
-        return classifyOutputs(outputs_vec; threshold = threshold)
+        outputs = classifyOutputs(outputs_vec; threshold = threshold)
+        return reshape(outputs, :, 1)
         
 
     else
@@ -186,10 +187,11 @@ function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2}
         # Si solo tienen una columna, llamamos a la función anterior
         return accuracy(outputs[:, 1], targets[:, 1])
     else
-        # Si el número de columnas es mayor que 2, comparamos ambas matrices
-        correct_predictions = sum(outputs .== targets)
-        total_predictions = length(outputs)
-        return correct_predictions / total_predictions
+        
+        total_rows = size(outputs, 1)
+        correct_count = sum(all(outputs .== targets, dims=2))
+        
+        return correct_count / total_rows
     end
 end
 
@@ -203,10 +205,11 @@ function accuracy(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,
     
     if size(outputs, 2) == 1
         # Si solo tienen una columna, llamamos a la función anterior
-        return accuracy(outputs[:, 1], targets[:, 1])
+        predictions = classifyOutputs(outputs, threshold=threshold)
+        return accuracy(predictions[:, 1], targets[:, 1])
     else
         # Si el número de columnas es mayor que 1, convertimos outputs a booleanos
-        predictions = classifyOutputs(outputs, threshold=threshold)
+        predictions = classifyOutputs(outputs)
         return accuracy(predictions, targets)
     end
 end
@@ -237,9 +240,6 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
     if numOutputs == 1  
         # Problema de clasificación binaria
         ann = Chain(ann..., Dense(numInputsLayer, 1, σ))
-    elseif numOutputs == 2 
-        # Problema de clasificación binaria
-        ann = Chain(ann..., Dense(numInputsLayer, 2, σ))
     else
         # Problema de clasificación multiclase
         ann = Chain(ann..., Dense(numInputsLayer, numOutputs), softmax)
@@ -247,7 +247,6 @@ function buildClassANN(numInputs::Int, topology::AbstractArray{<:Int,1}, numOutp
 
     return ann
 end
-
 
 
 function trainClassANN(topology::AbstractArray{<:Int,1},
@@ -259,113 +258,107 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
     maxEpochsVal::Int=20)
-        # Extraer las matrices de entradas y salidas deseadas del conjunto de entrenamiento
+        # Extract input and target matrices from the training dataset
         inputs, targets = trainingDataset
 
-        # Obtener el número de neuronas de entrada y salida
+        # Get the number of input and output neurons
         numInputs, numOutputs = size(inputs, 2), size(targets, 2)
     
-        # Crear la red neuronal con la topología proporcionada
+        # Create the neural network with the provided topology
         ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
     
-        # Vector para almacenar los valores de loss en cada ciclo de entrenamiento
+        # Vector to store loss values during training
         trainingLossValues = Float32[]
         validationLossValues = Float32[]
         testLossValues = Float32[]
     
-        # Variables para almacenar la mejor RNA y su mejor loss de validación
+        # Variables to store the best ANN and its best validation loss
         bestANN = deepcopy(ann)
         bestValidationLoss = Inf
     
-        # Configurar el optimizador
+        # Configure the optimizer
         opt = Flux.setup(Adam(learningRate), ann)
+        
+        # Define loss function based on the number of classes
         loss(model, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);        
-        # Entrenamiento de la red neuronal
+
+        # Training the neural network
         for epoch in 1:maxEpochs
-            # Entrenar un ciclo
+            # Train one epoch
             Flux.train!(loss, ann, [(inputs', targets')], opt)
     
-            # Calcular el valor de loss en cada ciclo de entrenamiento
-            trainingLoss = Flux.crossentropy(ann(inputs'), targets')
+            # Calculate loss value for training set
+            trainingLoss = loss(ann, inputs', targets')
             push!(trainingLossValues, trainingLoss)
     
-            # Calcular el valor de loss en el conjunto de validación (si se proporciona)
+            # Calculate loss value for validation set if provided
             if !isempty(validationDataset[1])
                 validationInputs, validationTargets = validationDataset
-                validationLoss = Flux.crossentropy(ann(validationInputs'), validationTargets')
+                validationLoss = loss(ann, validationInputs', validationTargets')
                 push!(validationLossValues, validationLoss)
     
-                # Actualizar la mejor RNA si se encuentra un nuevo mínimo de loss de validación
+                # Update the best ANN if a new validation loss minimum is found
                 if validationLoss < bestValidationLoss
                     bestValidationLoss = validationLoss
                     bestANN = deepcopy(ann)
                 end
     
-                # Criterio de parada temprana: si maxEpochsVal ciclos pasan sin mejorar el mejor loss de validación, detener el entrenamiento
+                # Early stopping criterion: if maxEpochsVal epochs pass without improving the best validation loss, stop training
                 if epoch - argmin(validationLossValues) >= maxEpochsVal
                     break
                 end
             end
     
-            # Calcular el valor de loss en el conjunto de test (si se proporciona)
+            # Calculate loss value for test set if provided
             if !isempty(testDataset[1])
                 testInputs, testTargets = testDataset
-                testLoss = Flux.crossentropy(ann(testInputs'), testTargets')
+                testLoss = loss(ann, testInputs', testTargets')
                 push!(testLossValues, testLoss)
             end
     
-            # Criterio de parada: si la pérdida es menor que minLoss, detener el entrenamiento
+            # Stopping criterion: if loss is less than minLoss, stop training
             if trainingLoss < minLoss
                 break
             end
         end
     
-        # Seleccionar la RNA final a devolver (la mejor RNA si hay validación, la última RNA entrenada si no hay validación)
+        # Select the final ANN to return (the best ANN if there is validation, the last trained ANN otherwise)
         finalANN = isempty(validationDataset[1]) ? ann : bestANN
     
         return finalANN, trainingLossValues, validationLossValues, testLossValues
     end
 
 
-    function trainClassANN(topology::AbstractArray{<:Int,1},
-        trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
-        validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
-        (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
-        testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
-        (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
-        transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
-        maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
-        maxEpochsVal::Int=20)
-    
-        # Reshape de las salidas deseadas del conjunto de entrenamiento
-        reshaped_training_targets = reshape(trainingDataset[2], :, 1)
-    
-        # Reshape de las salidas deseadas del conjunto de validación
-        if !isempty(validationDataset[1])
-            reshaped_validation_targets = reshape(validationDataset[2], :, 1)
-        else
-            reshaped_validation_targets = falses(0, 1)  # Salidas vacías
-        end
-    
-        # Reshape de las salidas deseadas del conjunto de test
-        if !isempty(testDataset[1])
-            reshaped_test_targets = reshape(testDataset[2], :, 1)
-        else
-            reshaped_test_targets = falses(0, 1)  # Salidas vacías
-        end
-    
-        # Llamar a la función original con las salidas deseadas reestructuradas
-        return trainClassANN(topology, 
-            (trainingDataset[1], reshaped_training_targets); 
-            validationDataset=(validationDataset[1], reshaped_validation_targets),
-            testDataset=(testDataset[1], reshaped_test_targets),
-            transferFunctions = transferFunctions,
-            maxEpochs = maxEpochs,
-            minLoss = minLoss,
-            learningRate = learningRate,
-            maxEpochsVal = maxEpochsVal)
+function trainClassANN(topology::AbstractArray{<:Int,1},
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}};
+    validationDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
+    (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
+    testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}}=
+    (Array{eltype(trainingDataset[1]),2}(undef,0,0), falses(0)),
+    transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
+    maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
+    maxEpochsVal::Int=20)
+
+    # Reshape de las salidas deseadas del conjunto de entrenamiento
+    reshaped_training_targets = reshape(trainingDataset[2], :, 1)
+
+    # Reshape de las salidas deseadas del conjunto de validación
+    reshaped_validation_targets = reshape(validationDataset[2], :, 1)
+
+    # Reshape de las salidas deseadas del conjunto de test
+    reshaped_test_targets = reshape(testDataset[2], :, 1)
+
+    # Llamar a la función original con las salidas deseadas reestructuradas
+    return trainClassANN(topology, 
+        (trainingDataset[1], reshaped_training_targets); 
+        validationDataset=(validationDataset[1],reshaped_validation_targets),
+        testDataset=(testDataset[1],reshaped_test_targets),
+        transferFunctions = transferFunctions,
+        maxEpochs = maxEpochs,
+        minLoss = minLoss,
+        learningRate = learningRate,
+        maxEpochsVal = maxEpochsVal)
     end
-    
 
 
 
@@ -433,13 +426,13 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
     FN = sum((.!outputs) .& targets)
 
     # Calcular métricas
-    precision = (VP + VN == 0) ? 1.0 : (VP / (VP + FP))
+    precision = accuracy(outputs,targets)#(VP + VN == 0) ? 1.0 : (VP / (VP + FP))
     error_rate = (VP + VN == 0) ? 0.0 : ((FN + FP) / (VP + VN + FN + FP))
-    sensitivity = (VP == 0) ? 1.0 : (VP / (FN + VP))
-    specificity = (VN == 0) ? 1.0 : (VN / (FP + VN))
-    precision_pos = (VP + FP == 0) ? 1.0 : (VP / (VP + FP))
+    sensitivity = (VP == FN == 0) ? 1.0 : (VP / (FN + VP))
+    specificity = (VN == FP == 0)||(VN==FN==0) ? 1.0 : (VN / (FP + VN))
+    precision_pos = (VP == FP == 0) ? 1.0 : (VP / (VP + FP))
     precision_neg = (VN + FN == 0) ? 1.0 : (VN / (VN + FN))
-    f1_score = (sensitivity + precision_pos == 0) ? 0.0 : (2 * sensitivity * precision_pos / (sensitivity + precision_pos))
+    f1_score = (sensitivity == precision_pos == 0) ? 0.0 : (2 * sensitivity * precision_pos / (sensitivity + precision_pos))
 
     # Crear la matriz de confusión
     confusion_matrix = [VN FP; FN VP]
@@ -449,7 +442,7 @@ end
 
 function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
     # Convertir las salidas a valores booleanos basados en el umbral
-    outputs_bool = outputs .>= threshold
+    outputs_bool = classifyOutputs(outputs,threshold=threshold)
 
     # Calcular las métricas de evaluación
     confusionMatrix(outputs_bool, targets)

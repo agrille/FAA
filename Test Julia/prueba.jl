@@ -6,12 +6,12 @@ using DelimitedFiles
 include("PAA.jl")   
 
 
-dataset = rand(Float32,5,1)
-salidas = rand(Bool, 5,9)
-exits = rand(Bool, 5,9)
+dataset = rand(Float32,5,3)
+salidas = rand(Bool, 4,1)
+exits = rand(Bool,4,1)
 
 
-ann = trainClassANN([3,4,2],(dataset,salidas))
+ann = trainClassANN([3,4,5,6,5,6,2],(dataset,salidas))
 
 
 print(ann)
@@ -19,9 +19,9 @@ print(ann)
 
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
-s = classifyOutputs(dataset)
+s = classifyOutputs(salidas,threshold=0.99)
 
-accuracy(salidas,exits)
+confusionMatrix(salidas,exits)
 
 
 
