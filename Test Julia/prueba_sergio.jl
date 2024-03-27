@@ -18,3 +18,8 @@ normalizeZeroMean!(outputs)
 print(outputs)
 
 accuracy(outputs, outputs)
+ERROR: MethodError: no method matching accuracy(::Matrix{Float32}, ::Matrix{Float32})
+
+Closest candidates are:
+  accuracy(::AbstractMatrix{<:Real}, ::AbstractMatrix{Bool}; threshold)
+   @ Main c:\Users\sergi\Documents\GitHub\FAA\Test Julia\PAA.jl:198
