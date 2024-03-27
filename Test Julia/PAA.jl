@@ -426,12 +426,12 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
     FN = sum((.!outputs) .& targets)
 
     # Calcular métricas
-    precision = accuracy(outputs,targets)#(VP + VN == 0) ? 1.0 : (VP / (VP + FP))
+    precision = (VN + VP + FN + FP == 0) ? 0.0 : (VN + VP)/(VN + VP + FN + FP)#(VP + VN == 0) ? 1.0 : (VP / (VP + FP))
     error_rate = (VP + VN == 0) ? 0.0 : ((FN + FP) / (VP + VN + FN + FP))
     sensitivity = (VP == FN == 0) ? 1.0 : (VP / (FN + VP))
-    specificity = (VN == FP == 0)||(VN==FN==0) ? 1.0 : (VN / (FP + VN))
+    specificity = (VN == FP == 0) ? 1.0 : (VN / (FP + VN))
     precision_pos = (VP == FP == 0) ? 1.0 : (VP / (VP + FP))
-    precision_neg = (VN + FN == 0) ? 1.0 : (VN / (VN + FN))
+    precision_neg = (VN==FN==0) ? 1.0 : (VN / (VN + FN))
     f1_score = (sensitivity == precision_pos == 0) ? 0.0 : (2 * sensitivity * precision_pos / (sensitivity + precision_pos))
 
     # Crear la matriz de confusión
