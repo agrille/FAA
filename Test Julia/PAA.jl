@@ -174,24 +174,20 @@ end
 
 function accuracy(outputs::AbstractArray{Bool,1}, targets::AbstractArray{Bool,1})
     @assert length(outputs) == length(targets) "Las matrices de salidas y objetivos deben tener la misma longitud"
-    
+
     correct_predictions = sum(outputs .== targets)
     total_predictions = length(outputs)
-    
+
     return correct_predictions / total_predictions
 end
 
 function accuracy(outputs::AbstractArray{Bool,2}, targets::AbstractArray{Bool,2})
     @assert length(outputs) == length(targets) "Las matrices de salidas y objetivos deben tener la misma longitud"
+
     if size(outputs, 2) == 1
-        # Si solo tienen una columna, llamamos a la función anterior
         return accuracy(outputs[:, 1], targets[:, 1])
     else
-        
-        total_rows = size(outputs, 1)
-        correct_count = sum(all(outputs .== targets, dims=2))
-        
-        return correct_count / total_rows
+        return mean(all(outputs .== targets, dims=2))
     end
 end
 

@@ -20,8 +20,8 @@ print(outputs)
 accuracy(outputs, outputs)
 
 # Definir los vectores de salida y objetivos
-outputs = [1, 0, 1, 0, 1]
-targets = [1, 1, 0, 0, 1]
+outputs = [true, false, true, false, true]
+targets = [true, true, false, false, true]
 
 # Llamar a la función y recibir los resultados
 precision, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, confusion_matrix = confusionMatrix(outputs, targets)
