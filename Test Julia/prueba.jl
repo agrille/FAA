@@ -21,7 +21,7 @@ params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(salidas,threshold=0.99)
 
-confusionMatrix(salidas,exits)
+printConfusionMatrix(salidas,exits)
 
 
 

@@ -426,7 +426,7 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
     FN = sum((.!outputs) .& targets)
 
     # Calcular métricas
-    precision = (VN + VP + FN + FP == 0) ? 0.0 : (VN + VP)/(VN + VP + FN + FP)#(VP + VN == 0) ? 1.0 : (VP / (VP + FP))
+    accuracy = (VN + VP + FN + FP == 0) ? 0.0 : (VN + VP)/(VN + VP + FN + FP)#(VP + VN == 0) ? 1.0 : (VP / (VP + FP))
     error_rate = (VP + VN == 0) ? 0.0 : ((FN + FP) / (VP + VN + FN + FP))
     sensitivity = (VP == FN == 0) ? 1.0 : (VP / (FN + VP))
     specificity = (VN == FP == 0) ? 1.0 : (VN / (FP + VN))
@@ -437,7 +437,7 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
     # Crear la matriz de confusión
     confusion_matrix = [VN FP; FN VP]
 
-    return precision, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, confusion_matrix
+    return accuracy, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, confusion_matrix
 end
 
 function confusionMatrix(outputs::AbstractArray{<:Real,1}, targets::AbstractArray{Bool,1}; threshold::Real=0.5)
@@ -567,7 +567,7 @@ function printConfusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractA
 
     # Mostrar resultados
     println("Confusion Matrix:")
-    println("Precision: $(confusion[1])")
+    println("Accuracy: $(confusion[1])")
     println("Error Rate: $(confusion[2])")
     println("Sensitivity (Recall): $(confusion[3])")
     println("Specificity: $(confusion[4])")
@@ -588,7 +588,7 @@ function printConfusionMatrix(outputs::AbstractArray{<:Real,2}, targets::Abstrac
 
     # Mostrar resultados
     println("Confusion Matrix:")
-    println("Precision: $(confusion[1])")
+    println("Accuracy: $(confusion[1])")
     println("Error Rate: $(confusion[2])")
     println("Sensitivity (Recall): $(confusion[3])")
     println("Specificity: $(confusion[4])")
@@ -605,7 +605,7 @@ function printConfusionMatrix(outputs::AbstractArray{<:Any,1}, targets::Abstract
 
     # Mostrar resultados
     println("Confusion Matrix:")
-    println("Precision: $(confusion[1])")
+    println("Accuracy: $(confusion[1])")
     println("Error Rate: $(confusion[2])")
     println("Sensitivity (Recall): $(confusion[3])")
     println("Specificity: $(confusion[4])")
