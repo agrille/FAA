@@ -6,12 +6,13 @@ using DelimitedFiles
 include("PAA.jl")   
 
 
-dataset = rand(Float32,5,3)
-salidas = rand(Bool, 4,1)
+dataset = rand(Float32,3,3)
+salidas = ["a";"b";"a"]
+print(salidas)
 exits = rand(Bool,4,1)
 
-
-ann = trainClassANN([3,4,5,6,5,6,2],(dataset,salidas))
+accuracy(exits,salidas)
+ann = ANNCrossValidation([3,4,2],dataset,salidas,[3])
 
 
 print(ann)
@@ -183,4 +184,5 @@ ddd
 # ptest = 0.3
 # x = holdOut(10,0.3,0.2)
 # println(x)
+
 

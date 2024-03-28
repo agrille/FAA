@@ -1,4 +1,3 @@
-
 # Tened en cuenta que en este archivo todas las funciones tienen puesta la palabra reservada 'function' y 'end' al final
 # Según cómo las defináis, podrían tener que llevarlas o no
 
@@ -725,6 +724,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
     validationRatio::Real=0, maxEpochsVal::Int=20)
+    
 
     # Función auxiliar para calcular la media y desviación estándar
     function mean_and_std(values)
@@ -771,11 +771,12 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
             end
 
             # Entrenar la RNA y obtener las métricas
-            model = trainClassANN(topology, (inputs, targets);
+            model = trainClassANN(topology, (inputs, encoded_targets);
                 transferFunctions=transferFunctions,maxEpochs=maxEpochs, 
                 minLoss=minLoss, learningRate=learningRate)
 
-            outputs = predictANN(model, test_inputs)
+            outputs = model[1](test_inputs)
+            # predictions = argmax(outputs, dims=1)
             confusion_matrix = confusionMatrix(outputs, test_targets)
             metrics[i, :] = [accuracy(confusion_matrix,targets), errorRate(confusion_matrix),
                 sensitivity(confusion_matrix), specificity(confusion_matrix),
@@ -805,15 +806,89 @@ end
 # ----------------------------------------------------------------------------------------------
 
 using ScikitLearn: @sk_import, fit!, predict
+using Random: seed!
 
+# Importar los modelos necesarios
 @sk_import svm: SVC
 @sk_import tree: DecisionTreeClassifier
 @sk_import neighbors: KNeighborsClassifier
 
-
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
-    #
-    # Codigo a desarrollar
-    #
-end;
+    # Preprocesar los datos de destino si es necesario (convertir a cadena)
+    targets = string.(targets)
+    
+    # Variables para almacenar resultados de métricas
+    num_folds = length(crossValidationIndices)
+    precision = zeros(num_folds)
+    error_rate = zeros(num_folds)
+    sensitivity = zeros(num_folds)
+    specificity = zeros(num_folds)
+    vpp = zeros(num_folds)
+    vpn = zeros(num_folds)
+    f1 = zeros(num_folds)
+    
+    # Verificar el tipo de modelo deseado
+    if modelType == :ANN
+        # Implementar lógica para entrenar redes neuronales (no incluido aquí)
+        # Aquí se podría llamar a una función existente para entrenar redes neuronales
+        println("Entrenamiento de redes neuronales aún no implementado")
+        return
+    elseif modelType == :SVC
+        # Crear modelo SVM
+        model = SVC(C=modelHyperparameters["C"],
+                    kernel=modelHyperparameters["kernel"],
+                    degree=modelHyperparameters["degree"],
+                    gamma=modelHyperparameters["gamma"],
+                    coef0=modelHyperparameters["coef0"])
+    elseif modelType == :DecisionTreeClassifier
+        # Crear modelo de Árbol de Decisión
+        model = DecisionTreeClassifier(max_depth=modelHyperparameters["max_depth"])
+    elseif modelType == :KNeighborsClassifier
+        # Crear modelo kNN
+        model = KNeighborsClassifier(n_neighbors=modelHyperparameters["n_neighbors"])
+    else
+        println("Tipo de modelo no reconocido")
+        return
+    end
+    
+    # Iterar sobre las particiones de validación cruzada
+    for i in 1:num_folds
+        # Obtener índices de entrenamiento y prueba
+        train_indices = setdiff(collect(1:size(inputs, 1)), crossValidationIndices[i])
+        test_indices = crossValidationIndices[i]
+        
+        # Obtener datos de entrenamiento y prueba
+        train_inputs = inputs[train_indices, :]
+        train_targets = targets[train_indices]
+        test_inputs = inputs[test_indices, :]
+        test_targets = targets[test_indices]
+        
+        # Entrenar el modelo
+        fit!(model, train_inputs, train_targets)
+        
+        # Realizar predicciones
+        predictions = predict(model, test_inputs)
+        
+        # Calcular matriz de confusión
+        cm = confusionMatrix(predictions, test_targets)
+        
+        # Calcular métricas de desempeño
+        precision[i] = cm[1][1]
+        error_rate[i] = cm[2][1]
+        sensitivity[i] = cm[3][1]
+        specificity[i] = cm[4][1]
+        vpp[i] = cm[5][1]
+        vpn[i] = cm[6][1]
+        f1[i] = cm[7][1]
+    end
+    
+    # Devolver resultados de métricas
+    return (mean(precision), std(precision)), 
+           (mean(error_rate), std(error_rate)), 
+           (mean(sensitivity), std(sensitivity)), 
+           (mean(specificity), std(specificity)), 
+           (mean(vpp), std(vpp)), 
+           (mean(vpn), std(vpn)), 
+           (mean(f1), std(f1))
+end
 
