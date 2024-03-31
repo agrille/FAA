@@ -7,12 +7,21 @@ include("PAA.jl")
 
 
 dataset = rand(Float32,3,3)
-salidas = ["a";"b";"a"]
+sal = rand(Bool,3)
+salidas =  Bool[0 0 1 0
+            1 0 0 0
+            0 0 1 0
+            0 0 0 1
+            0 1 0 0] 
 print(salidas)
-exits = rand(Bool,4,1)
+exits =  Bool[0 0 1 0
+1 0 0 0
+0 0 1 0
+0 1 0 0
+0 1 0 0]
 
 accuracy(exits,salidas)
-ann = ANNCrossValidation([3,4,2],dataset,salidas,[3])
+ANNCrossValidation([3],dataset,sal,[1])
 
 
 print(ann)
@@ -22,7 +31,7 @@ params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(salidas,threshold=0.99)
 
-printConfusionMatrix(salidas,exits)
+confusionMatrix(salidas,exits)
 
 
 

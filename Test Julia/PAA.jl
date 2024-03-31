@@ -257,75 +257,82 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
     maxEpochsVal::Int=20)
-        # Extract input and target matrices from the training dataset
-        inputs, targets = trainingDataset
+    # Extract input and target matrices from the training dataset
+    inputs, targets = trainingDataset
 
-        # Get the number of input and output neurons
-        numInputs, numOutputs = size(inputs, 2), size(targets, 2)
-    
-        # Create the neural network with the provided topology
-        ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
-    
-        # Vector to store loss values during training
-        trainingLossValues = Float32[]
+    loss(model, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);        
+
+    numInputs, numOutputs = size(inputs, 2), size(targets, 2)
+
+    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
+
+    trainingLossValues = Float32[loss(ann, inputs', targets')] 
+
+    if !isempty(validationDataset[1])
+        validationInputs, validationTargets = validationDataset
+        validationLossValues = loss(ann, validationInputs', validationTargets')
+    else 
         validationLossValues = Float32[]
-        testLossValues = Float32[]
-    
-        # Variables to store the best ANN and its best validation loss
-        bestANN = deepcopy(ann)
-        bestValidationLoss = Inf
-    
-        # Configure the optimizer
-        opt = Flux.setup(Adam(learningRate), ann)
-        
-        # Define loss function based on the number of classes
-        loss(model, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);        
+    end
 
-        # Training the neural network
-        for epoch in 1:maxEpochs
-            # Train one epoch
-            Flux.train!(loss, ann, [(inputs', targets')], opt)
+    if !isempty(testDataset[1])
+        testInputs, testTargets = testDataset
+        testLossValues = loss(ann, testInputs', testTargets')
+    else
+        testLossValues = Float32[]
+    end
+
+    # Variables to store the best ANN and its best validation loss
+    bestANN = deepcopy(ann)
+    bestValidationLoss = Inf
+
+    # Configure the optimizer
+    opt = Flux.setup(Adam(learningRate), ann)
     
-            # Calculate loss value for training set
-            trainingLoss = loss(ann, inputs', targets')
-            push!(trainingLossValues, trainingLoss)
-    
-            # Calculate loss value for validation set if provided
-            if !isempty(validationDataset[1])
-                validationInputs, validationTargets = validationDataset
-                validationLoss = loss(ann, validationInputs', validationTargets')
-                push!(validationLossValues, validationLoss)
-    
-                # Update the best ANN if a new validation loss minimum is found
-                if validationLoss < bestValidationLoss
-                    bestValidationLoss = validationLoss
-                    bestANN = deepcopy(ann)
-                end
-    
-                # Early stopping criterion: if maxEpochsVal epochs pass without improving the best validation loss, stop training
-                if epoch - argmin(validationLossValues) >= maxEpochsVal
-                    break
-                end
+
+    # Training the neural network
+    for epoch in 1:maxEpochs
+        # Train one epoch
+        Flux.train!(loss, ann, [(inputs', targets')], opt)
+
+        # Calculate loss value for training set
+        trainingLoss = loss(ann, inputs', targets')
+        push!(trainingLossValues, trainingLoss)
+
+        # Calculate loss value for validation set if provided
+        if !isempty(validationDataset[1])
+            validationLoss = loss(ann, validationInputs', validationTargets')
+            push!(validationLossValues, validationLoss)
+
+            # Update the best ANN if a new validation loss minimum is found
+            if validationLoss < bestValidationLoss
+                bestValidationLoss = validationLoss
+                bestANN = deepcopy(ann)
             end
-    
-            # Calculate loss value for test set if provided
-            if !isempty(testDataset[1])
-                testInputs, testTargets = testDataset
-                testLoss = loss(ann, testInputs', testTargets')
-                push!(testLossValues, testLoss)
-            end
-    
-            # Stopping criterion: if loss is less than minLoss, stop training
-            if trainingLoss < minLoss
+
+            # Early stopping criterion: if maxEpochsVal epochs pass without improving the best validation loss, stop training
+            if epoch - argmin(validationLossValues) >= maxEpochsVal
                 break
             end
         end
-    
-        # Select the final ANN to return (the best ANN if there is validation, the last trained ANN otherwise)
-        finalANN = isempty(validationDataset[1]) ? ann : bestANN
-    
-        return finalANN, trainingLossValues, validationLossValues, testLossValues
+
+        # Calculate loss value for test set if provided
+        if !isempty(testDataset[1])
+            testLoss = loss(ann, testInputs', testTargets')
+            push!(testLossValues, testLoss)
+        end
+
+        # Stopping criterion: if loss is less than minLoss, stop training
+        if trainingLoss < minLoss
+            break
+        end
     end
+
+    # Select the final ANN to return (the best ANN if there is validation, the last trained ANN otherwise)
+    finalANN = isempty(validationDataset[1]) ? ann : bestANN
+
+    return finalANN, trainingLossValues, validationLossValues, testLossValues
+end
 
 
 function trainClassANN(topology::AbstractArray{<:Int,1},
@@ -339,7 +346,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     maxEpochsVal::Int=20)
 
     # Reshape de las salidas deseadas del conjunto de entrenamiento
-    reshaped_training_targets = reshape(trainingDataset[2], :, 1)
+    targets = reshape(trainingDataset[2], :, 1)
 
     # Reshape de las salidas deseadas del conjunto de validación
     reshaped_validation_targets = reshape(validationDataset[2], :, 1)
@@ -348,16 +355,84 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     reshaped_test_targets = reshape(testDataset[2], :, 1)
 
     # Llamar a la función original con las salidas deseadas reestructuradas
-    return trainClassANN(topology, 
-        (trainingDataset[1], reshaped_training_targets); 
-        validationDataset=(validationDataset[1],reshaped_validation_targets),
-        testDataset=(testDataset[1],reshaped_test_targets),
-        transferFunctions = transferFunctions,
-        maxEpochs = maxEpochs,
-        minLoss = minLoss,
-        learningRate = learningRate,
-        maxEpochsVal = maxEpochsVal)
+    inputs, _ = trainingDataset
+
+
+    loss(model, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);        
+
+    numInputs, numOutputs = size(inputs, 2), size(targets, 2)
+
+    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
+
+    trainingLossValues = Float32[loss(ann, inputs', targets')] 
+
+    if !isempty(validationDataset[1])
+        validationInputs, _ = validationDataset
+        validationTargets = reshaped_validation_targets
+        validationLossValues = loss(ann, validationInputs', validationTargets')
+    else 
+        validationLossValues = Float32[]
     end
+
+    if !isempty(testDataset[1])
+        testInputs, _ = testDataset
+        testTargets = reshaped_test_targets
+        testLossValues = loss(ann, testInputs', testTargets')
+    else
+        testLossValues = Float32[]
+    end
+
+    # Variables to store the best ANN and its best validation loss
+    bestANN = deepcopy(ann)
+    bestValidationLoss = Inf
+
+    # Configure the optimizer
+    opt = Flux.setup(Adam(learningRate), ann)
+    
+
+    # Training the neural network
+    for epoch in 1:maxEpochs
+        # Train one epoch
+        Flux.train!(loss, ann, [(inputs', targets')], opt)
+
+        # Calculate loss value for training set
+        trainingLoss = loss(ann, inputs', targets')
+        push!(trainingLossValues, trainingLoss)
+
+        # Calculate loss value for validation set if provided
+        if !isempty(validationDataset[1])
+            validationLoss = loss(ann, validationInputs', validationTargets')
+            push!(validationLossValues, validationLoss)
+
+            # Update the best ANN if a new validation loss minimum is found
+            if validationLoss < bestValidationLoss
+                bestValidationLoss = validationLoss
+                bestANN = deepcopy(ann)
+            end
+
+            # Early stopping criterion: if maxEpochsVal epochs pass without improving the best validation loss, stop training
+            if epoch - argmin(validationLossValues) >= maxEpochsVal
+                break
+            end
+        end
+
+        # Calculate loss value for test set if provided
+        if !isempty(testDataset[1])
+            testLoss = loss(ann, testInputs', testTargets')
+            push!(testLossValues, testLoss)
+        end
+
+        # Stopping criterion: if loss is less than minLoss, stop training
+        if trainingLoss < minLoss
+            break
+        end
+    end
+
+    # Select the final ANN to return (the best ANN if there is validation, the last trained ANN otherwise)
+    finalANN = isempty(validationDataset[1]) ? ann : bestANN
+
+    return finalANN, trainingLossValues, validationLossValues, testLossValues
+end
 
 
 
@@ -425,8 +500,8 @@ function confusionMatrix(outputs::AbstractArray{Bool,1}, targets::AbstractArray{
     FN = sum((.!outputs) .& targets)
 
     # Calcular métricas
-    accuracy = (VN + VP + FN + FP == 0) ? 0.0 : (VN + VP)/(VN + VP + FN + FP)#(VP + VN == 0) ? 1.0 : (VP / (VP + FP))
-    error_rate = (VP + VN == 0) ? 0.0 : ((FN + FP) / (VP + VN + FN + FP))
+    accuracy = (VN + VP + FN + FP == 0) ? 0.0 : (VN + VP)/(VN + VP + FN + FP)
+    error_rate = (VN + VP + FN + FP == 0) ? 1.0 : ((FN + FP) / (VP + VN + FN + FP))
     sensitivity = (VP == FN == 0) ? 1.0 : (VP / (FN + VP))
     specificity = (VN == FP == 0) ? 1.0 : (VN / (FP + VN))
     precision_pos = (VP == FP == 0) ? 1.0 : (VP / (VP + FP))
@@ -461,11 +536,26 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
     f1_score = zeros(Float64, num_classes)
 
     # Inicializar matriz de confusión
-    confusion_matrix = [confusionMatrix(outputs[:, i], targets[:, i]) for i in 1:num_classes]
+    confusion_matrix = zeros(Int, num_classes, num_classes)
+
+    for i in 1:num_classes
+        for j in 1:num_classes
+            confusion_matrix[i, j] = sum(outputs[:, i] .& targets[:, j])
+        end
+    end
 
     # Calcular métricas macro o weighted según se especifique
     for i in 1:num_classes
-        sensitivity[i], _, _, specificity[i], precision_pos[i], precision_neg[i], f1_score[i], _ = confusion_matrix[i]
+        VP = confusion_matrix[i, i]
+        FN = sum(outputs[:, i] .& .!(targets[:, i]))
+        FP = sum(.!(outputs[:, i]) .& targets[:, i])
+        VN = sum(.!(outputs[:, i]) .& .!(targets[:, i]))
+
+        sensitivity[i] = (VP == FN == 0) ? 1.0 : (VP / (FN + VP))
+        specificity[i] = (VN == FP == 0) ? 1.0 : (VN / (FP + VN))
+        precision_pos[i] = (VP == FP == 0) ? 1.0 : (VP / (VP + FP))
+        precision_neg[i] = (VN==FN==0) ? 1.0 : (VN / (VN + FN))
+        f1_score[i] = (sensitivity[i] == precision_pos[i] == 0) ? 0.0 : (2 * sensitivity[i] * precision_pos[i] / (sensitivity[i] + precision_pos[i]))
     end
 
     if weighted
@@ -491,6 +581,7 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
 end
 
 
+
 function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArray{Bool,2}; weighted::Bool=true)
     # Convertir las salidas del modelo a valores booleanos
     outputs_bool = classifyOutputs(outputs)
@@ -501,7 +592,7 @@ end
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
     # Asegurar que todas las clases de salida estén incluidas en las clases deseadas
-    @assert all(in.(unique(outputs), unique(targets))) "Todas las clases de salida deben estar incluidas en las clases deseadas"
+    @assert(all([in(output, unique(targets)) for output in outputs])) 
 
     # Codificar las matrices outputs y targets
     encoded_outputs = oneHotEncoding(outputs)
