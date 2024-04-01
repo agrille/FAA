@@ -345,8 +345,8 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
     maxEpochsVal::Int=20)
 
-    # Reshape de las salidas deseadas del conjunto de entrenamiento
-    targets = reshape(trainingDataset[2], :, 1)
+ # Reshape de las salidas deseadas del conjunto de entrenamiento
+    reshaped_training_targets = reshape(trainingDataset[2], :, 1)
 
     # Reshape de las salidas deseadas del conjunto de validación
     reshaped_validation_targets = reshape(validationDataset[2], :, 1)
@@ -355,84 +355,16 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     reshaped_test_targets = reshape(testDataset[2], :, 1)
 
     # Llamar a la función original con las salidas deseadas reestructuradas
-    inputs, _ = trainingDataset
-
-
-    loss(model, x,y) = (size(y,1) == 1) ? Losses.binarycrossentropy(model(x),y) : Losses.crossentropy(model(x),y);        
-
-    numInputs, numOutputs = size(inputs, 2), size(targets, 2)
-
-    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
-
-    trainingLossValues = Float32[loss(ann, inputs', targets')] 
-
-    if !isempty(validationDataset[1])
-        validationInputs, _ = validationDataset
-        validationTargets = reshaped_validation_targets
-        validationLossValues = loss(ann, validationInputs', validationTargets')
-    else 
-        validationLossValues = Float32[]
-    end
-
-    if !isempty(testDataset[1])
-        testInputs, _ = testDataset
-        testTargets = reshaped_test_targets
-        testLossValues = loss(ann, testInputs', testTargets')
-    else
-        testLossValues = Float32[]
-    end
-
-    # Variables to store the best ANN and its best validation loss
-    bestANN = deepcopy(ann)
-    bestValidationLoss = Inf
-
-    # Configure the optimizer
-    opt = Flux.setup(Adam(learningRate), ann)
-    
-
-    # Training the neural network
-    for epoch in 1:maxEpochs
-        # Train one epoch
-        Flux.train!(loss, ann, [(inputs', targets')], opt)
-
-        # Calculate loss value for training set
-        trainingLoss = loss(ann, inputs', targets')
-        push!(trainingLossValues, trainingLoss)
-
-        # Calculate loss value for validation set if provided
-        if !isempty(validationDataset[1])
-            validationLoss = loss(ann, validationInputs', validationTargets')
-            push!(validationLossValues, validationLoss)
-
-            # Update the best ANN if a new validation loss minimum is found
-            if validationLoss < bestValidationLoss
-                bestValidationLoss = validationLoss
-                bestANN = deepcopy(ann)
-            end
-
-            # Early stopping criterion: if maxEpochsVal epochs pass without improving the best validation loss, stop training
-            if epoch - argmin(validationLossValues) >= maxEpochsVal
-                break
-            end
-        end
-
-        # Calculate loss value for test set if provided
-        if !isempty(testDataset[1])
-            testLoss = loss(ann, testInputs', testTargets')
-            push!(testLossValues, testLoss)
-        end
-
-        # Stopping criterion: if loss is less than minLoss, stop training
-        if trainingLoss < minLoss
-            break
-        end
-    end
-
-    # Select the final ANN to return (the best ANN if there is validation, the last trained ANN otherwise)
-    finalANN = isempty(validationDataset[1]) ? ann : bestANN
-
-    return finalANN, trainingLossValues, validationLossValues, testLossValues
-end
+    return trainClassANN(topology, 
+        (trainingDataset[1], reshaped_training_targets); 
+        validationDataset=(validationDataset[1],reshaped_validation_targets),
+        testDataset=(testDataset[1],reshaped_test_targets),
+        transferFunctions = transferFunctions,
+        maxEpochs = maxEpochs,
+        minLoss = minLoss,
+        learningRate = learningRate,
+        maxEpochsVal = maxEpochsVal)
+ end
 
 
 
@@ -442,9 +374,6 @@ end
 
 using Random
 
-# holdOut:
-# Salida incorrecta el ejecutar con argumentos de tipo (Int, Real, Real): el vector de Ã­ndices de validacion tiene una longitud incorrecta
-# Salida incorrecta el ejecutar con argumentos de tipo (Int, Real, Real): el vector de Ã­ndices de test tiene una longitud incorrecta
 
 
 function holdOut(N::Int, P::Real)
@@ -538,36 +467,19 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
         precision_pos = zeros(Float64, num_classes)
         precision_neg = zeros(Float64, num_classes)
         f1_score = zeros(Float64, num_classes)
-        matrix = zeros(Int,2,2)
+        matrix = zeros(Int,num_classes,num_classes)
 
-        cm = [confusionMatrix(outputs[:, i], targets[:, i]) for i in 1:num_classes]
-        for i in 1:num_classes
-            matrix += cm[i][8] 
-        end
-
-
-        # Calculamos la matriz de confusión
-        # for i in 1:num_classes, j in 1:num_classes
-        #     if outputs[i, j] && targets[i, j]
-        #         # Verdadero Positivo
-        #         matrix[j, j] += 1
-        #     elseif outputs[i, j] && !(targets[i, j])
-        #         # Falso Positivo
-        #         for k in 1:num_classes
-        #             k != j && (matrix[k, j] += 1)
-        #         end
-        #     elseif !(outputs[i, j]) && targets[i, j]
-        #         # Falso Negativo
-        #         for k in 1:num_classes
-        #             k != j && (matrix[j, k] += 1)
-        #         end
-        #     elseif !(outputs[i, j]) && !(targets[i, j])
-        #         # Verdadero Negativo
-        #         for k in 1:num_classes
-        #             k != j && (matrix[k, k] += 1)
-        #         end
-        #     end
+        # cm = [confusionMatrix(outputs[:, i], targets[:, i]) for i in 1:num_classes]
+        # for i in 1:num_classes
+        #     matrix += cm[i][8] 
         # end
+        total = size(outputs,1)
+
+        for i in 1:total
+            true_label = findfirst(exits[i, :])
+            predicted_label = findfirst(outputs[i, :])
+            matrix[true_label, predicted_label] += 1
+        end
 
         # Calcular métricas macro o weighted según se especifique
         for i in 1:num_classes
@@ -591,7 +503,7 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
 
     end
 
-    return (accuracy_value, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, matrix)
+    return (accuracy_value, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, matrix')
 end
 
 

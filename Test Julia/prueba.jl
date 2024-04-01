@@ -9,20 +9,18 @@ include("PAA.jl")
 dataset = rand(Float32,3,3)
 sal = rand(Bool,3)
 salidas =  
-Bool
-[0 0 1 
-1 0 0 
-0 0 1 
-0 0 1 
-0 1 0] 
+Bool[0 0 1 0
+1 0 0 0
+0 0 1 0
+0 0 1 0
+0 0 0 1] 
 print(salidas)
 exits =  
-Bool
-[0 0 1 
-1 0 0 
-0 0 1 
-0 1 0 
-0 1 0 ]
+Bool[0 0 1 0
+1 0 0 0
+0 0 1 0
+0 1 0 0
+0 0 0 1]
 ANNCrossValidation([3],dataset,sal,[1])
 
 params = calculateZeroMeanNormalizationParameters(dataset)
