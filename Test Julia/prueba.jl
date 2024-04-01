@@ -8,28 +8,27 @@ include("PAA.jl")
 
 dataset = rand(Float32,3,3)
 sal = rand(Bool,3)
-salidas =  Bool[0 0 1 0
-            1 0 0 0
-            0 0 1 0
-            0 0 0 1
-            0 1 0 0] 
+salidas =  
+Bool
+[0 0 1 
+1 0 0 
+0 0 1 
+0 0 1 
+0 1 0] 
 print(salidas)
-exits =  Bool[0 0 1 0
-1 0 0 0
-0 0 1 0
-0 1 0 0
-0 1 0 0]
-
-accuracy(exits,salidas)
+exits =  
+Bool
+[0 0 1 
+1 0 0 
+0 0 1 
+0 1 0 
+0 1 0 ]
 ANNCrossValidation([3],dataset,sal,[1])
-
-
-print(ann)
-
 
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(salidas,threshold=0.99)
+
 
 confusionMatrix(salidas,exits)
 

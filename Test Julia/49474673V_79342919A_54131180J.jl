@@ -538,36 +538,30 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
         precision_pos = zeros(Float64, num_classes)
         precision_neg = zeros(Float64, num_classes)
         f1_score = zeros(Float64, num_classes)
-        matrix = zeros(Int,2,2)
-
-        cm = [confusionMatrix(outputs[:, i], targets[:, i]) for i in 1:num_classes]
-        for i in 1:num_classes
-            matrix += cm[i][8] 
-        end
-
+        matrix = zeros(Int, num_classes, num_classes)
 
         # Calculamos la matriz de confusión
-        # for i in 1:num_classes, j in 1:num_classes
-        #     if outputs[i, j] && targets[i, j]
-        #         # Verdadero Positivo
-        #         matrix[j, j] += 1
-        #     elseif outputs[i, j] && !(targets[i, j])
-        #         # Falso Positivo
-        #         for k in 1:num_classes
-        #             k != j && (matrix[k, j] += 1)
-        #         end
-        #     elseif !(outputs[i, j]) && targets[i, j]
-        #         # Falso Negativo
-        #         for k in 1:num_classes
-        #             k != j && (matrix[j, k] += 1)
-        #         end
-        #     elseif !(outputs[i, j]) && !(targets[i, j])
-        #         # Verdadero Negativo
-        #         for k in 1:num_classes
-        #             k != j && (matrix[k, k] += 1)
-        #         end
-        #     end
-        # end
+        for i in 1:num_classes, j in 1:num_classes
+            if outputs[i, j] && targets[i, j]
+                # Verdadero Positivo
+                matrix[j, j] += 1
+            elseif outputs[i, j] && !(targets[i, j])
+                # Falso Positivo
+                for k in 1:num_classes
+                    k != j && (matrix[k, j] += 1)
+                end
+            elseif !(outputs[i, j]) && targets[i, j]
+                # Falso Negativo
+                for k in 1:num_classes
+                    k != j && (matrix[j, k] += 1)
+                end
+            elseif !(outputs[i, j]) && !(targets[i, j])
+                # Verdadero Negativo
+                for k in 1:num_classes
+                    k != j && (matrix[k, k] += 1)
+                end
+            end
+        end
 
         # Calcular métricas macro o weighted según se especifique
         for i in 1:num_classes
