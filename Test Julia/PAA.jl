@@ -468,15 +468,10 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
         precision_neg = zeros(Float64, num_classes)
         f1_score = zeros(Float64, num_classes)
         matrix = zeros(Int,num_classes,num_classes)
-
-        # cm = [confusionMatrix(outputs[:, i], targets[:, i]) for i in 1:num_classes]
-        # for i in 1:num_classes
-        #     matrix += cm[i][8] 
-        # end
         total = size(outputs,1)
 
         for i in 1:total
-            true_label = findfirst(exits[i, :])
+            true_label = findfirst(targets[i, :])
             predicted_label = findfirst(outputs[i, :])
             matrix[true_label, predicted_label] += 1
         end

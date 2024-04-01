@@ -9,26 +9,22 @@ include("PAA.jl")
 dataset = rand(Float32,3,3)
 sal = rand(Bool,3)
 salidas =  
-Bool[0 0 1 0
-1 0 0 0
-0 0 1 0
-0 0 1 0
-0 0 0 1] 
+Bool[0 0 1 ;1 0 0 ;0 0 1 ;0 0 1 ;0 1 0 ] 
 print(salidas)
 exits =  
-Bool[0 0 1 0
-1 0 0 0
-0 0 1 0
-0 1 0 0
-0 0 0 1]
-ANNCrossValidation([3],dataset,sal,[1])
+Bool[0 0 1 
+1 0 0 
+0 0 1 
+0 1 0 
+0 1 0]
+trainClassANN([3],(dataset,sal);minLoss=0.5)
 
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(salidas,threshold=0.99)
 
 
-confusionMatrix(salidas,exits)
+printConfusionMatrix(salidas,exits)
 
 
 
