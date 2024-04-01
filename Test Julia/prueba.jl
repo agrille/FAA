@@ -6,7 +6,7 @@ using DelimitedFiles
 include("PAA.jl")   
 
 
-dataset = rand(Float32,5,3)
+dataset = rand(Float32,3,3)
 sal = rand(Bool,3,3)
 dataset2 = rand(Float32,5,3)
 dataset3 = rand(Float32,5,3)
@@ -26,8 +26,9 @@ Bool[0 1 0
 0 0 1 
 0 1 0 
 1 0 0]
-trainClassANN([3],(dataset,exits);validationDataset=(dataset2,salidas),testDataset=(dataset3,ecsits))
-
+targets=String["Jose", "Pepe", "Jose", "Pepe", "Pepe"]
+a = ANNCrossValidation([3],dataset,targets,[1,2,3]; numExecutions=5)
+print(a)
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(salidas,threshold=0.99)

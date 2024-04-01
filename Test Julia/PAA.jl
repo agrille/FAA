@@ -457,16 +457,16 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
 
     num_classes = size(outputs, 2)
     if size(outputs,2) == 1 && size(targets,2 ) == 1
-        confusionMatrix(vec(outputs),vec(target))
+        return confusionMatrix(vec(outputs),vec(targets))
     # Inicializar vectores de métricas por clase
     else 
         accuracy_value = accuracy(outputs, targets, threshold=0.5)
         error_rate = 1.0 - accuracy_value
-        sensitivity = zeros(Float64, num_classes)
-        specificity = zeros(Float64, num_classes)
-        precision_pos = zeros(Float64, num_classes)
-        precision_neg = zeros(Float64, num_classes)
-        f1_score = zeros(Float64, num_classes)
+        sensitivity = zeros(Float32, num_classes)
+        specificity = zeros(Float32, num_classes)
+        precision_pos = zeros(Float32, num_classes)
+        precision_neg = zeros(Float32, num_classes)
+        f1_score = zeros(Float32, num_classes)
         matrix = zeros(Int,num_classes,num_classes)
         total = size(outputs,1)
 
@@ -730,87 +730,116 @@ end
 
 
 function ANNCrossValidation(topology::AbstractArray{<:Int,1},
-    inputs::AbstractArray{<:Real,2},
-    targets::AbstractArray{<:Any,1},
+    inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1},
     crossValidationIndices::Array{Int64,1};
     numExecutions::Int=50,
     transferFunctions::AbstractArray{<:Function,1}=fill(σ, length(topology)),
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
     validationRatio::Real=0, maxEpochsVal::Int=20)
-    
 
-    # Función auxiliar para calcular la media y desviación estándar
-    function mean_and_std(values)
-        return mean(values), std(values)
-    end
-
-    # Convertir las salidas deseadas a one-hot-encoding
-    encoded_targets = oneHotEncoding(targets)
+    # Crear vectores para almacenar los resultados de cada métrica
+    precision_results = Float32[]
+    error_rate_results = Float32[]
+    sensitivity_results = Float32[]
+    specificity_results = Float32[]
+    vpp_results = Float32[]
+    vpn_results = Float32[]
+    f1_results = Float32[]
 
     # Calcular el número de folds
     num_folds = maximum(crossValidationIndices)
 
-    # Inicializar vectores para almacenar las métricas
-    precision = zeros(num_folds)
-    error_rate = zeros(num_folds)
-    sensitivity = zeros(num_folds)
-    specificity = zeros(num_folds)
-    VPP = zeros(num_folds)
-    VPN = zeros(num_folds)
-    F1 = zeros(num_folds)
-
-    # Iterar sobre cada fold
+    # Iterar sobre cada fold de validación cruzada
     for fold in 1:num_folds
-        # Indices para el conjunto de entrenamiento y test
-        train_indices = findall(x -> x != fold, crossValidationIndices)
-        test_indices = findall(x -> x == fold, crossValidationIndices)
+        # Crear vectores para almacenar los resultados de cada repetición
+        precision_fold = Float32[]
+        error_rate_fold = Float32[]
+        sensitivity_fold = Float32[]
+        specificity_fold = Float32[]
+        vpp_fold = Float32[]
+        vpn_fold = Float32[]
+        f1_fold = Float32[]
 
-        # Datos de entrenamiento y test
-        train_inputs = inputs[:, train_indices]
-        train_targets = encoded_targets[:, train_indices]
-        test_inputs = inputs[:, test_indices]
-        test_targets = encoded_targets[:, test_indices]
+        # Obtener los índices de entrenamiento y test para este fold
+        test_indices = findall(crossValidationIndices .== fold)
+        train_indices = setdiff(1:length(crossValidationIndices), test_indices)
 
-        # Variables para almacenar los resultados de cada ejecución
-        metrics = zeros(numExecutions, 7)  # 7 métricas: precision, error_rate, sensitivity, specificity, VPP, VPN, F1
+        # Convertir targets a matriz de valores booleanos mediante one-hot-encoding
+        encoded_targets = oneHotEncoding(targets)
+        # print(encoded_targets)
+        # Dividir el conjunto de entrenamiento en entrenamiento y validación si validationRatio > 0
+        if validationRatio > 0
+            train_indices, val_indices = holdOut(length(train_indices), validationRatio)
+            validation_inputs = inputs[val_indices, :]
+            validation_targets = encoded_targets[val_indices, :]
+            print(validation_targets)
+        else
+            validation_inputs = Array{eltype(inputs)}(undef, 0, size(inputs, 2))
+            validation_targets = Array{eltype(encoded_targets)}(undef, 0, size(encoded_targets, 2))
+        end
 
         # Iterar sobre cada ejecución dentro del fold
-        for i in 1:numExecutions
-            # Dividir el conjunto de entrenamiento en entrenamiento y validación si es necesario
-            if validationRatio > 0
-                train_inputs, train_targets, val_inputs, val_targets = holdOut(train_inputs, train_targets, validationRatio)
-            else
-                val_inputs, val_targets = [], []
-            end
+        for _ in 1:numExecutions
+            # Entrenar la RNA
+            trained_ann, _, _, _ = trainClassANN(topology, (inputs[train_indices, :], encoded_targets[train_indices, :]);
+                validationDataset=(validation_inputs, validation_targets),
+                maxEpochs=maxEpochs, minLoss=minLoss, learningRate=learningRate,
+                maxEpochsVal=maxEpochsVal, transferFunctions=transferFunctions)
 
-            # Entrenar la RNA y obtener las métricas
-            model = trainClassANN(topology, (inputs, encoded_targets);
-                transferFunctions=transferFunctions,maxEpochs=maxEpochs, 
-                minLoss=minLoss, learningRate=learningRate)
+            # Evaluar el rendimiento en el conjunto de test
+            predictions = reshape(classifyOutputs(trained_ann(inputs)),:,size(encoded_targets,2))
+            print(predictions)
+            print(encoded_targets)
+            confusion_matrix = confusionMatrix(predictions[test_indices, :], encoded_targets[test_indices, :])
+            precision, error_rate, sensitivity, specificity, vpp, vpn, f1, matrix= confusion_matrix
 
-            outputs = model[1](test_inputs)
-            # predictions = argmax(outputs, dims=1)
-            confusion_matrix = confusionMatrix(outputs, test_targets)
-            metrics[i, :] = [accuracy(confusion_matrix,targets), errorRate(confusion_matrix),
-                sensitivity(confusion_matrix), specificity(confusion_matrix),
-                positivePredictiveValue(confusion_matrix), negativePredictiveValue(confusion_matrix),
-                F1Score(confusion_matrix)]
+            # Almacenar los resultados de esta repetición
+            push!(precision_fold, precision)
+            push!(error_rate_fold, error_rate)
+            push!(sensitivity_fold, sensitivity)
+            push!(specificity_fold, specificity)
+            push!(vpp_fold, vpp)
+            push!(vpn_fold, vpn)
+            push!(f1_fold, f1)
         end
 
         # Calcular la media y desviación estándar de las métricas para este fold
-        precision[fold], std_precision = mean_and_std(metrics[:, 1])
-        error_rate[fold], std_error_rate = mean_and_std(metrics[:, 2])
-        sensitivity[fold], std_sensitivity = mean_and_std(metrics[:, 3])
-        specificity[fold], std_specificity = mean_and_std(metrics[:, 4])
-        VPP[fold], std_VPP = mean_and_std(metrics[:, 5])
-        VPN[fold], std_VPN = mean_and_std(metrics[:, 6])
-        F1[fold], std_F1 = mean_and_std(metrics[:, 7])
+        mean_precision = mean(precision_fold)
+        std_precision = std(precision_fold)
+        mean_error_rate = mean(error_rate_fold)
+        std_error_rate = std(error_rate_fold)
+        mean_sensitivity = mean(sensitivity_fold)
+        std_sensitivity = std(sensitivity_fold)
+        mean_specificity = mean(specificity_fold)
+        std_specificity = std(specificity_fold)
+        mean_vpp = mean(vpp_fold)
+        std_vpp = std(vpp_fold)
+        mean_vpn = mean(vpn_fold)
+        std_vpn = std(vpn_fold)
+        mean_f1 = mean(f1_fold)
+        std_f1 = std(f1_fold)
+
+        # Almacenar los resultados de este fold
+        push!(precision_results, mean_precision)
+        push!(precision_results, std_precision)
+        push!(error_rate_results, mean_error_rate)
+        push!(error_rate_results, std_error_rate)
+        push!(sensitivity_results, mean_sensitivity)
+        push!(sensitivity_results, std_sensitivity)
+        push!(specificity_results, mean_specificity)
+        push!(specificity_results, std_specificity)
+        push!(vpp_results, mean_vpp)
+        push!(vpp_results, std_vpp)
+        push!(vpn_results, mean_vpn)
+        push!(vpn_results, std_vpn)
+        push!(f1_results, mean_f1)
+        push!(f1_results, std_f1)
+
     end
 
-    # Devolver las métricas
-    return (precision=(precision, std_precision), error_rate=(error_rate, std_error_rate),
-        sensitivity=(sensitivity, std_sensitivity), specificity=(specificity, std_specificity),
-        VPP=(VPP, std_VPP), VPN=(VPN, std_VPN), F1=(F1, std_F1))
+    # Devolver los resultados
+    return (precision_results, error_rate_results, sensitivity_results,
+            specificity_results, vpp_results, vpn_results, f1_results)
 end
 
 
