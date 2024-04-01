@@ -6,8 +6,11 @@ using DelimitedFiles
 include("PAA.jl")   
 
 
-dataset = rand(Float32,3,3)
-sal = rand(Bool,3)
+dataset = rand(Float32,5,3)
+sal = rand(Bool,3,3)
+dataset2 = rand(Float32,5,3)
+dataset3 = rand(Float32,5,3)
+sal2 = rand(Bool,3,3)
 salidas =  
 Bool[0 0 1 ;1 0 0 ;0 0 1 ;0 0 1 ;0 1 0 ] 
 print(salidas)
@@ -17,7 +20,13 @@ Bool[0 0 1
 0 0 1 
 0 1 0 
 0 1 0]
-trainClassANN([3],(dataset,sal);minLoss=0.5)
+ecsits =  
+Bool[0 1 0 
+1 0 0 
+0 0 1 
+0 1 0 
+1 0 0]
+trainClassANN([3],(dataset,exits);validationDataset=(dataset2,salidas),testDataset=(dataset3,ecsits))
 
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)

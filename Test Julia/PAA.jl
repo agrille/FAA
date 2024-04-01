@@ -270,14 +270,14 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
 
     if !isempty(validationDataset[1])
         validationInputs, validationTargets = validationDataset
-        validationLossValues = loss(ann, validationInputs', validationTargets')
+        validationLossValues = Float32[loss(ann, validationInputs', validationTargets')]
     else 
         validationLossValues = Float32[]
     end
 
     if !isempty(testDataset[1])
         testInputs, testTargets = testDataset
-        testLossValues = loss(ann, testInputs', testTargets')
+        testLossValues = Float32[loss(ann, testInputs', testTargets')]
     else
         testLossValues = Float32[]
     end
