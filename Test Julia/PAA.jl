@@ -153,7 +153,6 @@ function classifyOutputs(outputs::AbstractArray{<:Real, 2}; threshold::Real=0.5)
         outputs = classifyOutputs(outputs_vec; threshold = threshold)
         return reshape(outputs, :, 1)
         
-
     else
         # Si tiene más de una columna, obtener los índices de los máximos en cada fila
         (_, indicesMaxEachInstance) = findmax(outputs, dims=2)
@@ -808,8 +807,80 @@ using ScikitLearn: @sk_import, fit!, predict
 
 
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
-    #
-    # Codigo a desarrollar
-    #
-end;
-
+    if modelType == :ANN
+        # Entrenar redes neuronales
+        return ANNCrossValidation(modelHyperparameters, inputs, targets, crossValidationIndices)
+    else
+        # Convertir los targets a strings
+        targets = string.(targets)
+        
+        # Inicializar vectores para almacenar resultados de métricas
+        precisiones = zeros(7)
+        tasas_error = zeros(7)
+        sensibilidades = zeros(7)
+        especificidades = zeros(7)
+        VPPs = zeros(7)
+        VPNs = zeros(7)
+        F1s = zeros(7)
+        
+        # Realizar validación cruzada
+        for fold in 1:length(crossValidationIndices)
+            # Obtener índices de entrenamiento y test para este fold
+            test_indices = crossValidationIndices[fold]
+            train_indices = setdiff(1:length(inputs), test_indices)
+            
+            # Separar datos de entrenamiento y test
+            X_train, X_test = inputs[train_indices, :], inputs[test_indices, :]
+            y_train, y_test = targets[train_indices], targets[test_indices]
+            
+            # Crear y entrenar modelo
+            if modelType == :SVC
+                model = SVC(; C=modelHyperparameters[:C], kernel=modelHyperparameters[:kernel],
+                              degree=modelHyperparameters[:degree], gamma=modelHyperparameters[:gamma],
+                              coef0=modelHyperparameters[:coef0])
+            elseif modelType == :DecisionTreeClassifier
+                model = DecisionTreeClassifier(; max_depth=modelHyperparameters[:max_depth])
+            elseif modelType == :KNeighborsClassifier
+                model = KNeighborsClassifier(; n_neighbors=modelHyperparameters[:n_neighbors])
+            end
+            
+            fit!(model, X_train, y_train)
+            
+            # Predecir en datos de test
+            y_pred = predict(model, X_test)
+            
+            # Calcular matriz de confusión y métricas
+            confusion_matrix = confusionMatrix(y_test, y_pred)
+            precision, tasa_error, sensibilidad, especificidad, VPP, VPN, F1 = confusion_matrix
+            
+            # Almacenar resultados de métricas
+            precisiones[fold] = precision
+            tasas_error[fold] = tasa_error
+            sensibilidades[fold] = sensibilidad
+            especificidades[fold] = especificidad
+            VPPs[fold] = VPP
+            VPNs[fold] = VPN
+            F1s[fold] = F1
+        end
+        
+        # Calcular medias y desviaciones estándar de las métricas
+        precision_media = mean(precisiones)
+        precision_desviacion = std(precisiones)
+        tasa_error_media = mean(tasas_error)
+        tasa_error_desviacion = std(tasas_error)
+        sensibilidad_media = mean(sensibilidades)
+        sensibilidad_desviacion = std(sensibilidades)
+        especificidad_media = mean(especificidades)
+        especificidad_desviacion = std(especificidades)
+        VPP_media = mean(VPPs)
+        VPP_desviacion = std(VPPs)
+        VPN_media = mean(VPNs)
+        VPN_desviacion = std(VPNs)
+        F1_media = mean(F1s)
+        F1_desviacion = std(F1s)
+        
+        return (precision_media, precision_desviacion), (tasa_error_media, tasa_error_desviacion), 
+               (sensibilidad_media, sensibilidad_desviacion), (especificidad_media, especificidad_desviacion),
+               (VPP_media, VPP_desviacion), (VPN_media, VPN_desviacion), (F1_media, F1_desviacion)
+    end
+end
