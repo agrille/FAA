@@ -6,7 +6,7 @@ using DelimitedFiles
 include("PAA.jl")   
 
 
-dataset = rand(Float32,3,3)
+dataset = rand(Float32,5,3)
 sal = rand(Bool,3,3)
 dataset2 = rand(Float32,5,3)
 dataset3 = rand(Float32,5,3)
@@ -27,8 +27,17 @@ Bool[0 1 0
 0 1 0 
 1 0 0]
 targets=String["Jose", "Pepe", "Jose", "Pepe", "Pepe"]
-a = ANNCrossValidation([3],dataset,targets,[1,2,3]; numExecutions=5)
-print(a)
+e_t = oneHotEncoding(targets)
+e_m=Bool[1 
+0 
+1 
+0 
+0]
+e_r = reshape(e_m,:,1)
+e_r2 = reshape(e_m,:,1)
+b = trainClassANN([3],(dataset,e_m);validationDataset=(dataset2,e_m),testDataset=(dataset3,e_m))
+a = ANNCrossValidation([3],dataset,targets,[1,2,3,4,5]; numExecutions=30)
+print(b)
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(salidas,threshold=0.99)
@@ -36,7 +45,7 @@ s = classifyOutputs(salidas,threshold=0.99)
 
 printConfusionMatrix(salidas,exits)
 
-
+print(b)
 
 ddd
 

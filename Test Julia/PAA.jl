@@ -264,20 +264,35 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
 
     numInputs, numOutputs = size(inputs, 2), size(targets, 2)
 
-    ann = buildClassANN(numInputs, topology, numOutputs, transferFunctions=transferFunctions)
+    
 
-    trainingLossValues = Float32[loss(ann, inputs', targets')] 
+    ann = buildClassANN(numInputs, topology, numOutputs; transferFunctions=transferFunctions)
+
+    # Var de parada temprana
+   unimprovedCicles= Int
+   unimprovedCicles= 0
+
+    # Configure the optimizer
+    opt = Flux.setup(Adam(learningRate), ann)
+    loss_0 = loss(ann, inputs', targets')
+    trainingLossValues = Float32[] 
+    push!(trainingLossValues,loss_0)
 
     if !isempty(validationDataset[1])
         validationInputs, validationTargets = validationDataset
-        validationLossValues = Float32[loss(ann, validationInputs', validationTargets')]
+        vLoss_0 = loss(ann, validationInputs', validationTargets')
+        validationLossValues = Float32[]
+        push!(validationLossValues,vLoss_0)
+
     else 
         validationLossValues = Float32[]
     end
 
     if !isempty(testDataset[1])
         testInputs, testTargets = testDataset
-        testLossValues = Float32[loss(ann, testInputs', testTargets')]
+        tLoss_0 = loss(ann, testInputs', testTargets')
+        testLossValues = Float32[]
+        push!(validationLossValues,tLoss_0)
     else
         testLossValues = Float32[]
     end
@@ -286,8 +301,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     bestANN = deepcopy(ann)
     bestValidationLoss = Inf
 
-    # Configure the optimizer
-    opt = Flux.setup(Adam(learningRate), ann)
+    
     
 
     # Training the neural network
@@ -301,6 +315,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
 
         # Calculate loss value for validation set if provided
         if !isempty(validationDataset[1])
+            # Flux.train!(loss, ann, [(validationInputs', validationTargets')], opt)
             validationLoss = loss(ann, validationInputs', validationTargets')
             push!(validationLossValues, validationLoss)
 
@@ -308,16 +323,22 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
             if validationLoss < bestValidationLoss
                 bestValidationLoss = validationLoss
                 bestANN = deepcopy(ann)
+                unimprovedCicles=0
+                
+            else 
+               unimprovedCicles+= 1
             end
-
-            # Early stopping criterion: if maxEpochsVal epochs pass without improving the best validation loss, stop training
-            if epoch - argmin(validationLossValues) >= maxEpochsVal
+            # print(unimprovedCicles)
+            # Evitar Sobreentrenamiento
+            if unimprovedCicles >= maxEpochsVal
+                # print(n)
                 break
             end
         end
 
         # Calculate loss value for test set if provided
         if !isempty(testDataset[1])
+            # Flux.train!(loss, ann, [(testInputs', testTargets')], opt)
             testLoss = loss(ann, testInputs', testTargets')
             push!(testLossValues, testLoss)
         end
@@ -345,7 +366,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     maxEpochs::Int=1000, minLoss::Real=0.0, learningRate::Real=0.01,
     maxEpochsVal::Int=20)
 
- # Reshape de las salidas deseadas del conjunto de entrenamiento
+    # Reshape de las salidas deseadas del conjunto de entrenamiento
     reshaped_training_targets = reshape(trainingDataset[2], :, 1)
 
     # Reshape de las salidas deseadas del conjunto de validación
@@ -498,7 +519,7 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
 
     end
 
-    return (accuracy_value, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, matrix')
+    return (accuracy_value, error_rate, sensitivity, specificity, precision_pos, precision_neg, f1_score, matrix)
 end
 
 
@@ -772,7 +793,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
             train_indices, val_indices = holdOut(length(train_indices), validationRatio)
             validation_inputs = inputs[val_indices, :]
             validation_targets = encoded_targets[val_indices, :]
-            print(validation_targets)
+            # print(validation_targets)
         else
             validation_inputs = Array{eltype(inputs)}(undef, 0, size(inputs, 2))
             validation_targets = Array{eltype(encoded_targets)}(undef, 0, size(encoded_targets, 2))
@@ -787,11 +808,11 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
                 maxEpochsVal=maxEpochsVal, transferFunctions=transferFunctions)
 
             # Evaluar el rendimiento en el conjunto de test
-            predictions = reshape(classifyOutputs(trained_ann(inputs)),:,size(encoded_targets,2))
-            print(predictions)
-            print(encoded_targets)
+            predictions = reshape(classifyOutputs(trained_ann(inputs')),:,size(encoded_targets,2))
+            # print(predictions)
+            # print(encoded_targets)
             confusion_matrix = confusionMatrix(predictions[test_indices, :], encoded_targets[test_indices, :])
-            precision, error_rate, sensitivity, specificity, vpp, vpn, f1, matrix= confusion_matrix
+            precision, error_rate, sensitivity, specificity, vpp, vpn, f1, _ = confusion_matrix
 
             # Almacenar los resultados de esta repetición
             push!(precision_fold, precision)
