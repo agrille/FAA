@@ -269,8 +269,8 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     ann = buildClassANN(numInputs, topology, numOutputs; transferFunctions=transferFunctions)
 
     # Var de parada temprana
-   unimprovedCicles= Int
-   unimprovedCicles= 0
+   unimprovedCycles= Int
+   unimprovedCycles= 0
 
     # Configure the optimizer
     opt = Flux.setup(Adam(learningRate), ann)
@@ -312,6 +312,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         # Calculate loss value for training set
         trainingLoss = loss(ann, inputs', targets')
         push!(trainingLossValues, trainingLoss)
+        # print(unimprovedCycles)
 
         # Calculate loss value for validation set if provided
         if !isempty(validationDataset[1])
@@ -323,15 +324,14 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
             if validationLoss < bestValidationLoss
                 bestValidationLoss = validationLoss
                 bestANN = deepcopy(ann)
-                unimprovedCicles=0
+                unimprovedCycles=0
                 
             else 
-               unimprovedCicles+= 1
+               unimprovedCycles+= 1
             end
-            # print(unimprovedCicles)
             # Evitar Sobreentrenamiento
-            if unimprovedCicles >= maxEpochsVal
-                # print(n)
+            if unimprovedCycles >= maxEpochsVal
+                
                 break
             end
         end
@@ -877,81 +877,81 @@ using Random: seed!
 @sk_import neighbors: KNeighborsClassifier
 
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
-    # Preprocesar los datos de destino si es necesario (convertir a cadena)
-    targets = string.(targets)
-    
-    # Variables para almacenar resultados de métricas
-    num_folds = length(crossValidationIndices)
-    precision = zeros(num_folds)
-    error_rate = zeros(num_folds)
-    sensitivity = zeros(num_folds)
-    specificity = zeros(num_folds)
-    vpp = zeros(num_folds)
-    vpn = zeros(num_folds)
-    f1 = zeros(num_folds)
-    
-    # Verificar el tipo de modelo deseado
     if modelType == :ANN
-        # Implementar lógica para entrenar redes neuronales (no incluido aquí)
-        # Aquí se podría llamar a una función existente para entrenar redes neuronales
-        println("Entrenamiento de redes neuronales aún no implementado")
-        return
-    elseif modelType == :SVC
-        # Crear modelo SVM
-        model = SVC(C=modelHyperparameters["C"],
-                    kernel=modelHyperparameters["kernel"],
-                    degree=modelHyperparameters["degree"],
-                    gamma=modelHyperparameters["gamma"],
-                    coef0=modelHyperparameters["coef0"])
-    elseif modelType == :DecisionTreeClassifier
-        # Crear modelo de Árbol de Decisión
-        model = DecisionTreeClassifier(max_depth=modelHyperparameters["max_depth"])
-    elseif modelType == :KNeighborsClassifier
-        # Crear modelo kNN
-        model = KNeighborsClassifier(n_neighbors=modelHyperparameters["n_neighbors"])
+        # Entrenar redes neuronales
+        return ANNCrossValidation(modelHyperparameters, inputs, targets, crossValidationIndices)
     else
-        println("Tipo de modelo no reconocido")
-        return
+        # Convertir los targets a strings
+        targets = string.(targets)
+        
+        # Inicializar vectores para almacenar resultados de métricas
+        precisiones = zeros(7)
+        tasas_error = zeros(7)
+        sensibilidades = zeros(7)
+        especificidades = zeros(7)
+        VPPs = zeros(7)
+        VPNs = zeros(7)
+        F1s = zeros(7)
+        
+        # Realizar validación cruzada
+        for fold in 1:length(crossValidationIndices)
+            # Obtener índices de entrenamiento y test para este fold
+            test_indices = crossValidationIndices[fold]
+            train_indices = setdiff(1:length(inputs), test_indices)
+            
+            # Separar datos de entrenamiento y test
+            X_train, X_test = inputs[train_indices, :], inputs[test_indices, :]
+            y_train, y_test = targets[train_indices], targets[test_indices]
+            
+            # Crear y entrenar modelo
+            if modelType == :SVC
+                model = SVC(; C=modelHyperparameters[:C], kernel=modelHyperparameters[:kernel],
+                              degree=modelHyperparameters[:degree], gamma=modelHyperparameters[:gamma],
+                              coef0=modelHyperparameters[:coef0])
+            elseif modelType == :DecisionTreeClassifier
+                model = DecisionTreeClassifier(; max_depth=modelHyperparameters[:max_depth])
+            elseif modelType == :KNeighborsClassifier
+                model = KNeighborsClassifier(; n_neighbors=modelHyperparameters[:n_neighbors])
+            end
+            
+            fit!(model, X_train, y_train)
+            
+            # Predecir en datos de test
+            y_pred = predict(model, X_test)
+            
+            # Calcular matriz de confusión y métricas
+            confusion_matrix = confusionMatrix(y_test, y_pred)
+            precision, tasa_error, sensibilidad, especificidad, VPP, VPN, F1 = confusion_matrix
+            
+            # Almacenar resultados de métricas
+            precisiones[fold] = precision
+            tasas_error[fold] = tasa_error
+            sensibilidades[fold] = sensibilidad
+            especificidades[fold] = especificidad
+            VPPs[fold] = VPP
+            VPNs[fold] = VPN
+            F1s[fold] = F1
+        end
+        
+        # Calcular medias y desviaciones estándar de las métricas
+        precision_media = mean(precisiones)
+        precision_desviacion = std(precisiones)
+        tasa_error_media = mean(tasas_error)
+        tasa_error_desviacion = std(tasas_error)
+        sensibilidad_media = mean(sensibilidades)
+        sensibilidad_desviacion = std(sensibilidades)
+        especificidad_media = mean(especificidades)
+        especificidad_desviacion = std(especificidades)
+        VPP_media = mean(VPPs)
+        VPP_desviacion = std(VPPs)
+        VPN_media = mean(VPNs)
+        VPN_desviacion = std(VPNs)
+        F1_media = mean(F1s)
+        F1_desviacion = std(F1s)
+        
+        return (precision_media, precision_desviacion), (tasa_error_media, tasa_error_desviacion), 
+               (sensibilidad_media, sensibilidad_desviacion), (especificidad_media, especificidad_desviacion),
+               (VPP_media, VPP_desviacion), (VPN_media, VPN_desviacion), (F1_media, F1_desviacion)
     end
-    
-    # Iterar sobre las particiones de validación cruzada
-    for i in 1:num_folds
-        # Obtener índices de entrenamiento y prueba
-        train_indices = setdiff(collect(1:size(inputs, 1)), crossValidationIndices[i])
-        test_indices = crossValidationIndices[i]
-        
-        # Obtener datos de entrenamiento y prueba
-        train_inputs = inputs[train_indices, :]
-        train_targets = targets[train_indices]
-        test_inputs = inputs[test_indices, :]
-        test_targets = targets[test_indices]
-        
-        # Entrenar el modelo
-        fit!(model, train_inputs, train_targets)
-        
-        # Realizar predicciones
-        predictions = predict(model, test_inputs)
-        
-        # Calcular matriz de confusión
-        cm = confusionMatrix(predictions, test_targets)
-        
-        # Calcular métricas de desempeño
-        precision[i] = cm[1][1]
-        error_rate[i] = cm[2][1]
-        sensitivity[i] = cm[3][1]
-        specificity[i] = cm[4][1]
-        vpp[i] = cm[5][1]
-        vpn[i] = cm[6][1]
-        f1[i] = cm[7][1]
-    end
-    
-    # Devolver resultados de métricas
-    return (mean(precision), std(precision)), 
-           (mean(error_rate), std(error_rate)), 
-           (mean(sensitivity), std(sensitivity)), 
-           (mean(specificity), std(specificity)), 
-           (mean(vpp), std(vpp)), 
-           (mean(vpn), std(vpn)), 
-           (mean(f1), std(f1))
 end
 

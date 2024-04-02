@@ -11,21 +11,10 @@ sal = rand(Bool,3,3)
 dataset2 = rand(Float32,5,3)
 dataset3 = rand(Float32,5,3)
 sal2 = rand(Bool,3,3)
-salidas =  
-Bool[0 0 1 ;1 0 0 ;0 0 1 ;0 0 1 ;0 1 0 ] 
-print(salidas)
-exits =  
-Bool[0 0 1 
-1 0 0 
-0 0 1 
-0 1 0 
-0 1 0]
-ecsits =  
-Bool[0 1 0 
-1 0 0 
-0 0 1 
-0 1 0 
-1 0 0]
+data = readdlm("Iris.data", ',');
+inputs = convert(Array{Float32, 2}, data[1:100, 1:4]);
+classes = ["Iris-setosa"]
+target = data[1:100, 5]
 targets=String["Jose", "Pepe", "Jose", "Pepe", "Pepe"]
 e_t = oneHotEncoding(targets)
 e_m=Bool[1 
@@ -36,7 +25,7 @@ e_m=Bool[1
 e_r = reshape(e_m,:,1)
 e_r2 = reshape(e_m,:,1)
 b = trainClassANN([3],(dataset,e_m);validationDataset=(dataset2,e_m),testDataset=(dataset3,e_m))
-a = ANNCrossValidation([3],dataset,targets,[1,2,3,4,5]; numExecutions=30)
+a = ANNCrossValidation([3],inputs,target,[1,2,3,4,5,6,7,8,9,10]; numExecutions=3)
 print(b)
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
@@ -59,10 +48,7 @@ ddd
 
 # si = crossvalidation(dataset[1:100, 5],10)
 # Cargar datos y preparar entradas y salidas
-# dataset = readdlm("Iris.data", ',');
-# inputs = convert(Array{Float32, 2}, dataset[1:100, 1:4]);
-# classes = ["Iris-setosa"]
-# targets = dataset[1:100, 5]
+
 # numIns = size(inputs,1);
 
 # trainingDataset = (inputs, targets)
