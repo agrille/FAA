@@ -269,8 +269,11 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
     ann = buildClassANN(numInputs, topology, numOutputs; transferFunctions=transferFunctions)
 
     # Var de parada temprana
-   unimprovedCycles= Int
-   unimprovedCycles= 0
+    unimprovedCycles= Int
+    unimprovedCycles= 0
+
+    validationLossValues = Float32[]
+    testLossValues = Float32[]
 
     # Configure the optimizer
     opt = Flux.setup(Adam(learningRate), ann)
@@ -280,27 +283,19 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
 
     if !isempty(validationDataset[1])
         validationInputs, validationTargets = validationDataset
-        vLoss_0 = loss(ann, validationInputs', validationTargets')
-        validationLossValues = Float32[]
-        push!(validationLossValues,vLoss_0)
-
-    else 
-        validationLossValues = Float32[]
+        bestValidationLoss = loss(ann, validationInputs', validationTargets')
+        push!(validationLossValues,bestValidationLoss)
     end
 
     if !isempty(testDataset[1])
         testInputs, testTargets = testDataset
         tLoss_0 = loss(ann, testInputs', testTargets')
-        testLossValues = Float32[]
-        push!(validationLossValues,tLoss_0)
-    else
-        testLossValues = Float32[]
+        push!(testLossValues,tLoss_0)
+
     end
 
     # Variables to store the best ANN and its best validation loss
     bestANN = deepcopy(ann)
-    bestValidationLoss = Inf
-
     
     
 
@@ -314,9 +309,16 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         push!(trainingLossValues, trainingLoss)
         # print(unimprovedCycles)
 
+
+        # Calculate loss value for test set if provided
+        if !isempty(testDataset[1])
+            testLoss = loss(ann, testInputs', testTargets')
+            push!(testLossValues, testLoss)
+        end
+        
+
         # Calculate loss value for validation set if provided
         if !isempty(validationDataset[1])
-            # Flux.train!(loss, ann, [(validationInputs', validationTargets')], opt)
             validationLoss = loss(ann, validationInputs', validationTargets')
             push!(validationLossValues, validationLoss)
 
@@ -336,12 +338,8 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
             end
         end
 
-        # Calculate loss value for test set if provided
-        if !isempty(testDataset[1])
-            # Flux.train!(loss, ann, [(testInputs', testTargets')], opt)
-            testLoss = loss(ann, testInputs', testTargets')
-            push!(testLossValues, testLoss)
-        end
+        
+        
 
         # Stopping criterion: if loss is less than minLoss, stop training
         if trainingLoss < minLoss
@@ -759,7 +757,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     validationRatio::Real=0, maxEpochsVal::Int=20)
 
     # Crear vectores para almacenar los resultados de cada métrica
-    precision_results = Float32[]
+    accuracy_results = Float32[]
     error_rate_results = Float32[]
     sensitivity_results = Float32[]
     specificity_results = Float32[]
@@ -767,19 +765,21 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     vpn_results = Float32[]
     f1_results = Float32[]
 
+    accuracy_fold = Float32[]
+    error_rate_fold = Float32[]
+    sensitivity_fold = Float32[]
+    specificity_fold = Float32[]
+    vpp_fold = Float32[]
+    vpn_fold = Float32[]
+    f1_fold = Float32[]
+
+
     # Calcular el número de folds
     num_folds = maximum(crossValidationIndices)
 
     # Iterar sobre cada fold de validación cruzada
     for fold in 1:num_folds
         # Crear vectores para almacenar los resultados de cada repetición
-        precision_fold = Float32[]
-        error_rate_fold = Float32[]
-        sensitivity_fold = Float32[]
-        specificity_fold = Float32[]
-        vpp_fold = Float32[]
-        vpn_fold = Float32[]
-        f1_fold = Float32[]
 
         # Obtener los índices de entrenamiento y test para este fold
         test_indices = findall(crossValidationIndices .== fold)
@@ -809,24 +809,30 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
 
             # Evaluar el rendimiento en el conjunto de test
             predictions = reshape(classifyOutputs(trained_ann(inputs')),:,size(encoded_targets,2))
-            # print(predictions)
+            # println(predictions)
             # print(encoded_targets)
             confusion_matrix = confusionMatrix(predictions[test_indices, :], encoded_targets[test_indices, :])
-            precision, error_rate, sensitivity, specificity, vpp, vpn, f1, _ = confusion_matrix
-
+            accuracy, error_rate, sensitivity, specificity, vpp, vpn, f1, _ = confusion_matrix
+            # println(accuracy)
+            # println(error_rate)
             # Almacenar los resultados de esta repetición
-            push!(precision_fold, precision)
+            push!(accuracy_fold, accuracy)
             push!(error_rate_fold, error_rate)
             push!(sensitivity_fold, sensitivity)
             push!(specificity_fold, specificity)
             push!(vpp_fold, vpp)
             push!(vpn_fold, vpn)
             push!(f1_fold, f1)
+            # println(accuracy_fold)
         end
 
         # Calcular la media y desviación estándar de las métricas para este fold
-        mean_precision = mean(precision_fold)
-        std_precision = std(precision_fold)
+        
+
+    end
+
+        mean_accuracy = mean(accuracy_fold)
+        std_accuracy = std(accuracy_fold)
         mean_error_rate = mean(error_rate_fold)
         std_error_rate = std(error_rate_fold)
         mean_sensitivity = mean(sensitivity_fold)
@@ -839,10 +845,11 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
         std_vpn = std(vpn_fold)
         mean_f1 = mean(f1_fold)
         std_f1 = std(f1_fold)
+        # print(mean_accuracy)
 
         # Almacenar los resultados de este fold
-        push!(precision_results, mean_precision)
-        push!(precision_results, std_precision)
+        push!(accuracy_results, mean_accuracy)
+        push!(accuracy_results, std_accuracy)
         push!(error_rate_results, mean_error_rate)
         push!(error_rate_results, std_error_rate)
         push!(sensitivity_results, mean_sensitivity)
@@ -856,10 +863,8 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
         push!(f1_results, mean_f1)
         push!(f1_results, std_f1)
 
-    end
-
     # Devolver los resultados
-    return (precision_results, error_rate_results, sensitivity_results,
+    return (accuracy_results, error_rate_results, sensitivity_results,
             specificity_results, vpp_results, vpn_results, f1_results)
 end
 

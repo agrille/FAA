@@ -12,7 +12,7 @@ dataset2 = rand(Float32,5,3)
 dataset3 = rand(Float32,5,3)
 sal2 = rand(Bool,3,3)
 data = readdlm("Iris.data", ',');
-inputs = convert(Array{Float32, 2}, data[1:100, 1:4]);
+inputs = convert(Array{Float32, 2}, data[1:5, 1:4]);
 classes = ["Iris-setosa"]
 target = data[1:100, 5]
 targets=String["Jose", "Pepe", "Jose", "Pepe", "Pepe"]
@@ -25,15 +25,16 @@ e_m=Bool[1
 e_r = reshape(e_m,:,1)
 e_r2 = reshape(e_m,:,1)
 b = trainClassANN([3],(dataset,e_m);validationDataset=(dataset2,e_m),testDataset=(dataset3,e_m))
-a = ANNCrossValidation([3],inputs,target,[1,2,3,4,5,6,7,8,9,10]; numExecutions=3)
+println(length(b[2]),length(b[3]),length(b[4]))
+a = ANNCrossValidation([3],inputs,targets,[1,2,3,4,5]; numExecutions=5)
 print(b)
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
 s = classifyOutputs(salidas,threshold=0.99)
-
+holdOut(5,0.4)
 
 printConfusionMatrix(salidas,exits)
-
+crossvalidation(10,5)
 print(b)
 
 ddd
