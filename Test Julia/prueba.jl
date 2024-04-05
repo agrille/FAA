@@ -4,29 +4,39 @@ using Flux.Losses
 using DelimitedFiles
 
 include("PAA.jl")   
+a = modelCrossValidation(:KNeighborsClassifier,knn_hyperparameters,dataset,targets,[1,2,3])
 
 
-dataset = rand(Float32,5,3)
+
+dataset = rand(Float32,9,3)
 sal = rand(Bool,3,3)
 dataset2 = rand(Float32,5,3)
 dataset3 = rand(Float32,5,3)
 sal2 = rand(Bool,3,3)
 data = readdlm("Iris.data", ',');
-inputs = convert(Array{Float32, 2}, data[1:5, 1:4]);
+inputs = convert(Array{Float32, 2}, data[1:20, 1:4]);
 classes = ["Iris-setosa"]
 target = data[1:100, 5]
-targets=String["Jose", "Pepe", "Jose", "Pepe", "Pepe"]
+targets=String["Jose", "Pepe", "Jose", "Pepe", "Pepe", "Pepe", "Pepe", "Pepe", "Pepe"]
 e_t = oneHotEncoding(targets)
 e_m=Bool[1 
 0 
-1 
+1 tree_hyperparameters
 0 
 0]
 e_r = reshape(e_m,:,1)
 e_r2 = reshape(e_m,:,1)
+A= ANNCrossValidation([3],dataset,targets,[1,2,3,4,5];numExecutions=1)
+print(A[1])
 b = trainClassANN([3],(dataset,e_m);validationDataset=(dataset2,e_m),testDataset=(dataset3,e_m))
 println(length(b[2]),length(b[3]),length(b[4]))
-a = ANNCrossValidation([3],inputs,targets,[1,2,3,4,5]; numExecutions=5)
+ANN = Dict("topology" => [5,3], "learningRate" => 0.01,
+"validationRatio" => 0.2, "numExecutions" => 50, "maxEpochs" => 1000,
+"maxEpochsVal" => 6);
+svc_hyperparameters = Dict("C" => 1.0, "kernel" => "linear", "degree" => 3, "gamma" => "scale", "coef0" => 0.0)
+tree_hyperparameters = Dict("max_depth" => 3)
+knn_hyperparameters = Dict("n_neighbors" => 5)
+
 print(b)
 params = calculateZeroMeanNormalizationParameters(dataset)
 ss= normalizeZeroMean!(dataset)
@@ -35,7 +45,7 @@ holdOut(5,0.4)
 
 printConfusionMatrix(salidas,exits)
 crossvalidation(10,5)
-print(b)
+print(b)vrf
 
 ddd
 

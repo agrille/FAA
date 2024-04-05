@@ -757,21 +757,13 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
     validationRatio::Real=0, maxEpochsVal::Int=20)
 
     # Crear vectores para almacenar los resultados de cada métrica
-    accuracy_results = Float32[]
-    error_rate_results = Float32[]
-    sensitivity_results = Float32[]
-    specificity_results = Float32[]
-    vpp_results = Float32[]
-    vpn_results = Float32[]
-    f1_results = Float32[]
-
-    accuracy_fold = Float32[]
-    error_rate_fold = Float32[]
-    sensitivity_fold = Float32[]
-    specificity_fold = Float32[]
-    vpp_fold = Float32[]
-    vpn_fold = Float32[]
-    f1_fold = Float32[]
+    accuracy_fold = []
+    error_rate_fold = []
+    sensitivity_fold = []
+    specificity_fold = []
+    vpp_fold = []
+    vpn_fold = []
+    f1_fold = []
 
 
     # Calcular el número de folds
@@ -808,10 +800,10 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
                 maxEpochsVal=maxEpochsVal, transferFunctions=transferFunctions)
 
             # Evaluar el rendimiento en el conjunto de test
-            predictions = reshape(classifyOutputs(trained_ann(inputs')),:,size(encoded_targets,2))
+            predictions = reshape(classifyOutputs(trained_ann(inputs[test_indices,:]')),:,size(encoded_targets,2))
             # println(predictions)
             # print(encoded_targets)
-            confusion_matrix = confusionMatrix(predictions[test_indices, :], encoded_targets[test_indices, :])
+            confusion_matrix = confusionMatrix(predictions, encoded_targets[test_indices,:])
             accuracy, error_rate, sensitivity, specificity, vpp, vpn, f1, _ = confusion_matrix
             # println(accuracy)
             # println(error_rate)
@@ -831,41 +823,27 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
 
     end
 
-        mean_accuracy = mean(accuracy_fold)
-        std_accuracy = std(accuracy_fold)
-        mean_error_rate = mean(error_rate_fold)
-        std_error_rate = std(error_rate_fold)
-        mean_sensitivity = mean(sensitivity_fold)
-        std_sensitivity = std(sensitivity_fold)
-        mean_specificity = mean(specificity_fold)
-        std_specificity = std(specificity_fold)
-        mean_vpp = mean(vpp_fold)
-        std_vpp = std(vpp_fold)
-        mean_vpn = mean(vpn_fold)
-        std_vpn = std(vpn_fold)
-        mean_f1 = mean(f1_fold)
-        std_f1 = std(f1_fold)
+        mean_accuracy = (mean(accuracy_fold))
+        std_accuracy = (std(accuracy_fold))
+        mean_error_rate = (mean(error_rate_fold))
+        std_error_rate = (std(error_rate_fold))
+        mean_sensitivity = (mean(sensitivity_fold))
+        std_sensitivity = (std(sensitivity_fold))
+        mean_specificity = (mean(specificity_fold))
+        std_specificity = (std(specificity_fold))
+        mean_vpp = (mean(vpp_fold))
+        std_vpp = (std(vpp_fold))
+        mean_vpn = (mean(vpn_fold))
+        std_vpn = (std(vpn_fold))
+        mean_f1 = (mean(f1_fold))
+        std_f1 = (std(f1_fold))
         # print(mean_accuracy)
 
-        # Almacenar los resultados de este fold
-        push!(accuracy_results, mean_accuracy)
-        push!(accuracy_results, std_accuracy)
-        push!(error_rate_results, mean_error_rate)
-        push!(error_rate_results, std_error_rate)
-        push!(sensitivity_results, mean_sensitivity)
-        push!(sensitivity_results, std_sensitivity)
-        push!(specificity_results, mean_specificity)
-        push!(specificity_results, std_specificity)
-        push!(vpp_results, mean_vpp)
-        push!(vpp_results, std_vpp)
-        push!(vpn_results, mean_vpn)
-        push!(vpn_results, std_vpn)
-        push!(f1_results, mean_f1)
-        push!(f1_results, std_f1)
+        
 
     # Devolver los resultados
-    return (accuracy_results, error_rate_results, sensitivity_results,
-            specificity_results, vpp_results, vpn_results, f1_results)
+    return ((mean_accuracy,std_accuracy), (mean_error_rate,std_error_rate), (mean_sensitivity,std_sensitivity),
+            (mean_specificity,std_specificity), (mean_vpp,std_vpp), (mean_vpn,std_vpn), (mean_f1,std_f1))
 end
 
 
@@ -884,58 +862,80 @@ using Random: seed!
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
     if modelType == :ANN
         # Entrenar redes neuronales
-        return ANNCrossValidation(modelHyperparameters, inputs, targets, crossValidationIndices)
+        topology = modelHyperparameters["topology"]
+        learningRate = modelHyperparameters["learningRate"]
+        validationRatio = modelHyperparameters["validationRatio"]
+        numExecutions = modelHyperparameters["numExecutions"]
+        maxEpochs = modelHyperparameters["maxEpochs"]
+        maxEpochsVal = modelHyperparameters["maxEpochsVal"]
+        # print(topology)
+        
+        return ANNCrossValidation(topology, inputs, targets, crossValidationIndices;learningRate=learningRate,validationRatio=validationRatio,
+        numExecutions=numExecutions,maxEpochs=maxEpochs,maxEpochsVal=maxEpochsVal)
     else
         # Convertir los targets a strings
         targets = string.(targets)
         
         # Inicializar vectores para almacenar resultados de métricas
-        precisiones = zeros(7)
-        tasas_error = zeros(7)
-        sensibilidades = zeros(7)
-        especificidades = zeros(7)
-        VPPs = zeros(7)
-        VPNs = zeros(7)
-        F1s = zeros(7)
-        
+        precisiones = []
+        tasas_error = []
+        sensibilidades = []
+        especificidades = []
+        VPPs = []
+        VPNs = []
+        F1s = []
+        num_folds = maximum(crossValidationIndices)
+
         # Realizar validación cruzada
-        for fold in 1:length(crossValidationIndices)
+        for fold in 1:num_folds
             # Obtener índices de entrenamiento y test para este fold
-            test_indices = crossValidationIndices[fold]
-            train_indices = setdiff(1:length(inputs), test_indices)
-            
-            # Separar datos de entrenamiento y test
-            X_train, X_test = inputs[train_indices, :], inputs[test_indices, :]
-            y_train, y_test = targets[train_indices], targets[test_indices]
+            # test_indices = crossValidationIndices[fold]
+            # train_indices = setdiff(1:length(inputs), test_indices)
+            encoded = oneHotEncoding(targets)
+            test_indices = findall(crossValidationIndices .== fold)
+            train_indices = setdiff(1:length(crossValidationIndices), test_indices)
+            # print(encoded)
+            trainInputs = inputs[train_indices,:]
+            trainTargets = encoded[train_indices,:]
+            testInputs= inputs[test_indices,:]
+            testTargets = encoded[test_indices,:]
+
+          
             
             # Crear y entrenar modelo
             if modelType == :SVC
-                model = SVC(; C=modelHyperparameters[:C], kernel=modelHyperparameters[:kernel],
-                              degree=modelHyperparameters[:degree], gamma=modelHyperparameters[:gamma],
-                              coef0=modelHyperparameters[:coef0])
+                model = SVC(; C=modelHyperparameters["C"], kernel=modelHyperparameters["kernel"],
+                              degree=modelHyperparameters["degree"], gamma=modelHyperparameters["gamma"],
+                              coef0=modelHyperparameters["coef0"])
+                fit!(model, trainInputs, trainTargets)
+                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
             elseif modelType == :DecisionTreeClassifier
-                model = DecisionTreeClassifier(; max_depth=modelHyperparameters[:max_depth])
+                model = DecisionTreeClassifier(; max_depth=modelHyperparameters["max_depth"])
+                fit!(model, trainInputs, trainTargets)
+                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
+
             elseif modelType == :KNeighborsClassifier
-                model = KNeighborsClassifier(; n_neighbors=modelHyperparameters[:n_neighbors])
+                model = KNeighborsClassifier(; n_neighbors=modelHyperparameters["n_neighbors"])
+                fit!(model, trainInputs, trainTargets)
+                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
+
             end
             
-            fit!(model, X_train, y_train)
             
-            # Predecir en datos de test
-            y_pred = predict(model, X_test)
+        
+            confusion_matrix = confusionMatrix(pred,testTargets)
             
             # Calcular matriz de confusión y métricas
-            confusion_matrix = confusionMatrix(y_test, y_pred)
-            precision, tasa_error, sensibilidad, especificidad, VPP, VPN, F1 = confusion_matrix
+            precision, tasa_error, sensibilidad, especificidad, VPP, VPN, F1, _ = confusion_matrix
             
             # Almacenar resultados de métricas
-            precisiones[fold] = precision
-            tasas_error[fold] = tasa_error
-            sensibilidades[fold] = sensibilidad
-            especificidades[fold] = especificidad
-            VPPs[fold] = VPP
-            VPNs[fold] = VPN
-            F1s[fold] = F1
+            push!(precisiones, precision)
+            push!(tasas_error,tasa_error)
+            push!(sensibilidades, sensibilidad)
+            push!(especificidades,  especificidad)
+            push!(VPPs, VPP)
+            push!(VPNs, VPN)
+            push!(F1s, F1)
         end
         
         # Calcular medias y desviaciones estándar de las métricas
