@@ -488,14 +488,12 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
         f1_score = zeros(Float32, num_classes)
         matrix = zeros(Int,num_classes,num_classes)
         total = size(outputs,1)
-        
-        
+
         for i in 1:total
             true_label = findfirst(targets[i, :])
             predicted_label = findfirst(outputs[i, :])
             matrix[true_label, predicted_label] += 1
         end
-        
 
         # Calcular métricas macro o weighted según se especifique
         for i in 1:num_classes
@@ -805,8 +803,6 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
             predictions = reshape(classifyOutputs(trained_ann(inputs[test_indices,:]')),:,size(encoded_targets,2))
             # println(predictions)
             # print(encoded_targets)
-            # print(predictions)
-            # println(encoded_targets[test_indices,:])
             confusion_matrix = confusionMatrix(predictions, encoded_targets[test_indices,:])
             accuracy, error_rate, sensitivity, specificity, vpp, vpn, f1, _ = confusion_matrix
             # println(accuracy)
@@ -900,7 +896,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
             train_indices = setdiff(1:length(crossValidationIndices), test_indices)
             # print(encoded)
             trainInputs = inputs[train_indices,:]
-            trainTargets = targets[train_indices,:]
+            trainTargets = encoded[train_indices,:]
             testInputs= inputs[test_indices,:]
             testTargets = encoded[test_indices,:]
 
@@ -911,22 +907,23 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
                 model = SVC(; C=modelHyperparameters["C"], kernel=modelHyperparameters["kernel"],
                               degree=modelHyperparameters["degree"], gamma=modelHyperparameters["gamma"],
                               coef0=modelHyperparameters["coef0"])
-                
+                fit!(model, trainInputs, trainTargets)
+                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
             elseif modelType == :DecisionTreeClassifier
                 model = DecisionTreeClassifier(; max_depth=modelHyperparameters["max_depth"])
-                
+                fit!(model, trainInputs, trainTargets)
+                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
 
             elseif modelType == :KNeighborsClassifier
                 model = KNeighborsClassifier(; n_neighbors=modelHyperparameters["n_neighbors"])
-                
+                fit!(model, trainInputs, trainTargets)
+                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
 
             end
             
             
-            fit!(model, trainInputs, vec(trainTargets))
-            pred = reshape((predict(model, testInputs)),size(testInputs,1),:)
-            
-            confusion_matrix = confusionMatrix(oneHotEncoding(vec(pred)),testTargets)
+        
+            confusion_matrix = confusionMatrix(pred,testTargets)
             
             # Calcular matriz de confusión y métricas
             precision, tasa_error, sensibilidad, especificidad, VPP, VPN, F1, _ = confusion_matrix

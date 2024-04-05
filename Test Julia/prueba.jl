@@ -4,7 +4,7 @@ using Flux.Losses
 using DelimitedFiles
 
 include("PAA.jl")   
-a = modelCrossValidation(:KNeighborsClassifier,knn_hyperparameters,dataset,targets,[1,2,3])
+a = modelCrossValidation(:KNeighborsClassifier,knn_hyperparameters,dataset,targets,[1,2,3,4,5])
 
 
 
@@ -17,7 +17,7 @@ data = readdlm("Iris.data", ',');
 inputs = convert(Array{Float32, 2}, data[1:20, 1:4]);
 classes = ["Iris-setosa"]
 target = data[1:100, 5]
-targets=String["Jose", "Pepe", "Jose", "Pepe", "Pepe", "Pepe", "Pepe", "Pepe", "Pepe"]
+targets=String["Jose", "Pepe", "Jose", "Jose", "Pepe", "Pepe", "Pepe", "Pepe", "Pepe"]
 e_t = oneHotEncoding(targets)
 e_m=Bool[1 
 0 
