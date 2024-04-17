@@ -488,12 +488,14 @@ function confusionMatrix(outputs::AbstractArray{Bool,2}, targets::AbstractArray{
         f1_score = zeros(Float32, num_classes)
         matrix = zeros(Int,num_classes,num_classes)
         total = size(outputs,1)
-
+        
+        
         for i in 1:total
             true_label = findfirst(targets[i, :])
             predicted_label = findfirst(outputs[i, :])
             matrix[true_label, predicted_label] += 1
         end
+        
 
         # Calcular métricas macro o weighted según se especifique
         for i in 1:num_classes
@@ -767,7 +769,7 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
 
 
     # Calcular el número de folds
-    num_folds = maximum(crossValidationIndices)
+    num_folds = length(crossValidationIndices)
 
     # Iterar sobre cada fold de validación cruzada
     for fold in 1:num_folds
@@ -803,6 +805,8 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
             predictions = reshape(classifyOutputs(trained_ann(inputs[test_indices,:]')),:,size(encoded_targets,2))
             # println(predictions)
             # print(encoded_targets)
+            # print(predictions)
+            # println(encoded_targets[test_indices,:])
             confusion_matrix = confusionMatrix(predictions, encoded_targets[test_indices,:])
             accuracy, error_rate, sensitivity, specificity, vpp, vpn, f1, _ = confusion_matrix
             # println(accuracy)
@@ -823,27 +827,27 @@ function ANNCrossValidation(topology::AbstractArray{<:Int,1},
 
     end
 
-        mean_accuracy = (mean(accuracy_fold))
-        std_accuracy = (std(accuracy_fold))
-        mean_error_rate = (mean(error_rate_fold))
-        std_error_rate = (std(error_rate_fold))
-        mean_sensitivity = (mean(sensitivity_fold))
-        std_sensitivity = (std(sensitivity_fold))
-        mean_specificity = (mean(specificity_fold))
-        std_specificity = (std(specificity_fold))
-        mean_vpp = (mean(vpp_fold))
-        std_vpp = (std(vpp_fold))
-        mean_vpn = (mean(vpn_fold))
-        std_vpn = (std(vpn_fold))
-        mean_f1 = (mean(f1_fold))
-        std_f1 = (std(f1_fold))
+        mean_accuracy = mean(accuracy_fold)
+        std_accuracy = std(accuracy_fold)
+        mean_error_rate = mean(error_rate_fold)
+        std_error_rate = std(error_rate_fold)
+        mean_sensitivity = mean(sensitivity_fold)
+        std_sensitivity = std(sensitivity_fold)
+        mean_specificity = mean(specificity_fold)
+        std_specificity = std(specificity_fold)
+        mean_vpp = mean(vpp_fold)
+        std_vpp = std(vpp_fold)
+        mean_vpn = mean(vpn_fold)
+        std_vpn = std(vpn_fold)
+        mean_f1 = mean(f1_fold)
+        std_f1 = std(f1_fold)
         # print(mean_accuracy)
 
         
 
     # Devolver los resultados
-    return ((mean_accuracy,std_accuracy), (mean_error_rate,std_error_rate), (mean_sensitivity,std_sensitivity),
-            (mean_specificity,std_specificity), (mean_vpp,std_vpp), (mean_vpn,std_vpn), (mean_f1,std_f1))
+    return (mean_accuracy,std_accuracy), (mean_error_rate,std_error_rate), (mean_sensitivity,std_sensitivity),
+            (mean_specificity,std_specificity), (mean_vpp,std_vpp), (mean_vpn,std_vpn), (mean_f1,std_f1)
 end
 
 
@@ -884,7 +888,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
         VPPs = []
         VPNs = []
         F1s = []
-        num_folds = maximum(crossValidationIndices)
+        num_folds = length(crossValidationIndices)
 
         # Realizar validación cruzada
         for fold in 1:num_folds
@@ -896,7 +900,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
             train_indices = setdiff(1:length(crossValidationIndices), test_indices)
             # print(encoded)
             trainInputs = inputs[train_indices,:]
-            trainTargets = encoded[train_indices,:]
+            trainTargets = targets[train_indices,:]
             testInputs= inputs[test_indices,:]
             testTargets = encoded[test_indices,:]
 
@@ -907,23 +911,25 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
                 model = SVC(; C=modelHyperparameters["C"], kernel=modelHyperparameters["kernel"],
                               degree=modelHyperparameters["degree"], gamma=modelHyperparameters["gamma"],
                               coef0=modelHyperparameters["coef0"])
-                fit!(model, trainInputs, trainTargets)
-                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
+                
             elseif modelType == :DecisionTreeClassifier
                 model = DecisionTreeClassifier(; max_depth=modelHyperparameters["max_depth"])
-                fit!(model, trainInputs, trainTargets)
-                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
+                
 
             elseif modelType == :KNeighborsClassifier
                 model = KNeighborsClassifier(; n_neighbors=modelHyperparameters["n_neighbors"])
-                fit!(model, trainInputs, trainTargets)
-                pred = reshape(classifyOutputs(predict(model, testInputs)),size(testInputs,1),:)
+                
 
             end
             
             
-        
-            confusion_matrix = confusionMatrix(pred,testTargets)
+            fit!(model, trainInputs, trainTargets)
+            pred = reshape((predict(model, testInputs)),size(testInputs,1),:)
+            println(size(pred,1))
+            println(size(testTargets,1))
+            
+
+            confusion_matrix = confusionMatrix(oneHotEncoding(vec(pred)),testTargets)
             
             # Calcular matriz de confusión y métricas
             precision, tasa_error, sensibilidad, especificidad, VPP, VPN, F1, _ = confusion_matrix

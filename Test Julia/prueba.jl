@@ -3,8 +3,8 @@ using Flux
 using Flux.Losses
 using DelimitedFiles
 
-include("PAA.jl")   
-a = modelCrossValidation(:KNeighborsClassifier,knn_hyperparameters,dataset,targets,[1,2,3,4,5])
+include("49474673V_54131180J_79342919A.jl")   
+a = modelCrossValidation(:SVC,svc_hyperparameters,dataset,targets,[1,2,3,4,5])
 
 
 
@@ -17,7 +17,7 @@ data = readdlm("Iris.data", ',');
 inputs = convert(Array{Float32, 2}, data[1:20, 1:4]);
 classes = ["Iris-setosa"]
 target = data[1:100, 5]
-targets=String["Jose", "Pepe", "Jose", "Jose", "Pepe", "Pepe", "Pepe", "Pepe", "Pepe"]
+targets=String["Jose", "Pepe", "Jose", "Jose", "Pepe", "Maricel", "Pepe", "Pepe", "Pepe"]
 e_t = oneHotEncoding(targets)
 e_m=Bool[1 
 0 
@@ -26,7 +26,7 @@ e_m=Bool[1
 0]
 e_r = reshape(e_m,:,1)
 e_r2 = reshape(e_m,:,1)
-A= ANNCrossValidation([3],dataset,targets,[1,2,3,4,5];numExecutions=1)
+A= ANNCrossValidation([3],dataset,targets,[1,2,3,4,5];numExecutions=5)
 print(A[1])
 b = trainClassANN([3],(dataset,e_m);validationDataset=(dataset2,e_m),testDataset=(dataset3,e_m))
 println(length(b[2]),length(b[3]),length(b[4]))
